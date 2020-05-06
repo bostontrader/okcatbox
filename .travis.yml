@@ -4,8 +4,17 @@ go:
   - 1.14.x
 
 install:
-  - go get okcatbox
-  - go get okprobe
-  - go run okcatbox
+  - go get github.com/bostontrader/okprobe
 
-script: okprobe -url http://localhost:8090 -endpnt withdrawal-fee -keyfile  okcatbox-read.json
+script:
+  - git clone https://github.com/bostontrader/okcatbox
+  - cd okcatbox
+  - go build
+  - ./okcatbox &
+
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json
+  - okprobe -url http://localhost:8090 -endpnt wallet -keyfile  okcatbox-read.json

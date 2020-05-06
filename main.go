@@ -307,8 +307,106 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, ve
 		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
 
 		depositAddresses := make([]utils.DepositAddress, 1)
-		depositAddresses[0] = utils.DepositAddress{Address: "a", CurrencyID: "c", To: 6}
+		depositAddresses[0] = utils.DepositAddress{Address: "btc address", CurrencyID: "BTC", To: 6}
 		retVal, _ = json.Marshal(depositAddresses)
+	}
+
+	return
+}
+
+func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
+
+	fmt.Println(req, "\n")
+
+	// 1. Detect whether or not the various parameters exist.  If so, detect whether or not they are valid.  Set suitable flags so that subsequent error checking can occur.
+
+	// 1.1 Ok-Access-Key
+	akeyP, akeyV := validateAccessKey(req.Header)
+
+	// 1.2 Ok-Access-Timestamp
+	atimestampP, atimestampV, atimestampEx := validateTimestamp(req.Header)
+
+	// 1.3 Ok-Access-Passphrase
+	apassphraseP, apassphraseV := validatePassPhrase(req.Header)
+
+	// 1.4 Ok-Access-Sign
+	asignP, asignV := validateSign(req)
+
+	// 1.5 currency parameter
+	curParamP, curParamV := validateCurrencyParam(req)
+	fmt.Println("curParamP:", curParamP, "curParamV", curParamV)
+	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
+	if !akeyP {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(401)
+		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
+
+	} else if !asignP {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
+
+	} else if !atimestampP {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
+
+	} else if !atimestampV {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
+
+	} else if atimestampEx {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
+
+	} else if !akeyV {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(401)
+		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
+
+	} else if !apassphraseP {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
+
+	} else if !apassphraseV {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
+
+	} else if !asignV {
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(401)
+		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
+	} else if curParamP && !curParamV {
+		fmt.Println("parameter exists but is not valid")
+		setResponseHeaders(w, map[string]string{})
+		w.WriteHeader(400)
+
+		// The currency param should exist
+		if value, ok := req.URL.Query()["currency"]; ok {
+			// currency exists as a parameter.  Now try to validate it.
+			retVal, _ = json.Marshal(utils.Err30031(value[0])) // Invalid token
+		} else {
+			// This should never happen
+			retVal, _ = json.Marshal(utils.Err30031(""))
+		}
+	} else if curParamP && curParamV {
+		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
+
+		withdrawalFees := make([]utils.WithdrawalFee, 1)
+		withdrawalFees[0] = utils.WithdrawalFee{CurrencyID: "c", MinFee: "minf", MaxFee: "maxf"}
+		retVal, _ = json.Marshal(withdrawalFees)
+
+	} else {
+		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+
+		depositHistories := make([]utils.DepositHistory, 1)
+		depositHistories[0] = utils.DepositHistory{Amount: "amount", TXID: "txid", CurrencyID: "currency", From: "from", To: "to", DepositID: 666, Timestamp: "timestamp", Status: "status"}
+		retVal, _ = json.Marshal(depositHistories)
+
 	}
 
 	return
@@ -540,20 +638,21 @@ func getCredentials() ([]byte, error) {
 }
 
 // 2. Request handlers
-
-// /api/account/v3/currencies
 func currencies(w http.ResponseWriter, req *http.Request) {
 	retVal := generateCurrenciesResponse(w, req, "GET", "/api/account/v3/currencies")
 	fmt.Fprintf(w, string(retVal))
 }
 
-// /api/account/v3/deposit/address
 func depositAddress(w http.ResponseWriter, req *http.Request) {
 	retVal := generateDepositAddressResponse(w, req, "GET", "/api/account/v3/deposit/address")
 	fmt.Fprintf(w, string(retVal))
 }
 
-// /api/account/v3/wallet
+func depositHistory(w http.ResponseWriter, req *http.Request) {
+	retVal := generateDepositHistoryResponse(w, req, "GET", "/api/account/v3/deposit/history")
+	fmt.Fprintf(w, string(retVal))
+}
+
 func wallet(w http.ResponseWriter, req *http.Request) {
 	retVal := generateWalletResponse(w, req, "GET", "/api/account/v3/wallet")
 	fmt.Fprintf(w, string(retVal))
@@ -636,6 +735,7 @@ func main() {
 	// 4. Setup request handlers
 	http.HandleFunc("/api/account/v3/wallet", wallet)
 	http.HandleFunc("/api/account/v3/deposit/address", depositAddress)
+	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
 	http.HandleFunc("/api/account/v3/currencies", currencies)
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
 	http.HandleFunc("/credentials", credentials)
