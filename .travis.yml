@@ -12,8 +12,8 @@ script:
   - go build
   - ./okcatbox &
 
-  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -endpnt currencies
-  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -endpnt deposit-address
-  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -endpnt deposit-history
-  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -endpnt wallet
-  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -endpnt withdrawalfee
+  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -keyfile okcatbox-read.json -endpnt currencies
+  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -keyfile okcatbox-read.json -endpnt deposit-address
+  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -keyfile okcatbox-read.json -endpnt deposit-history
+  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -keyfile okcatbox-read.json -endpnt wallet
+  - okprobe -url http://localhost:8090 -errors true -keyfile okcatbox-read.json -keyfile okcatbox-read.json -endpnt withdrawalfee
