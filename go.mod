@@ -1,4 +1,4 @@
-module okcatbox
+module github.com/bostontrader/okcatbox
 
 go 1.14
 
