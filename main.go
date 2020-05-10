@@ -18,22 +18,14 @@ var obj utils.Credentials
 // This is our in-memory db
 var db *memdb.MemDB
 
-func setResponseHeaders(w http.ResponseWriter, extraHeaders map[string]string) {
-	w.Header().Set("Cache-Control", "")
-	w.Header().Set("Expires", "")
-	w.Header().Set("Pragma", "")
-	w.Header().Set("Set-Cookie", "")
-	w.Header().Set("Via", "")
-	w.Header().Set("X-Brokerid", "")
-	w.Header().Set("X-Content-Type-Options", "")
-	w.Header().Set("X-Frame-Options", "")
-	w.Header().Set("X-Kong-Proxy-Latency", "")
-	w.Header().Set("X-Kong-Upstream-Latency", "")
-	w.Header().Set("X-Ratelimit-Limit-Second", "")
-	w.Header().Set("X-Ratelimit-Remaining-Second", "")
-	w.Header().Set("X-Xss-Protection", "")
-
-	for k, v := range extraHeaders {
+func setResponseHeaders(w http.ResponseWriter, expectedResponseHeaders, extraResponseHeaders map[string]string) {
+	for k, v := range expectedResponseHeaders {
+		// Even if we expect Content-Length, don't send it
+		if k != "Content-Length" {
+			w.Header().Set(k, v)
+		}
+	}
+	for k, v := range extraResponseHeaders {
 		w.Header().Set(k, v)
 	}
 }
@@ -164,53 +156,53 @@ func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb s
 
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
 
 	} else if !asignP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
 
 	} else if !atimestampP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
 
 	} else if !atimestampV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
 
 	} else if atimestampEx {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
 
 	} else if !akeyV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
 
 	} else if !asignV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
 
 	} else {
 		//retVal, _ = getJsonResponseGood()
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
 		currencies := make([]utils.CurrenciesEntry, 1)
 		currencies[0] = utils.CurrenciesEntry{CanDeposit: "cd", CanWithdraw: "cw", CurrencyID: "c", Name: "n", MinWithdrawal: "mw"}
@@ -244,55 +236,55 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, ve
 	fmt.Println(curParamP, curParamV)
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
 
 	} else if !asignP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
 
 	} else if !atimestampP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
 
 	} else if !atimestampV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
 
 	} else if atimestampEx {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
 
 	} else if !akeyV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
 
 	} else if !asignV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
 	} else if !curParamP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30023()) // currency cannot be blank
 	} else if curParamP && !curParamV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 
 		// The currency param should exist
@@ -304,7 +296,7 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, ve
 		}
 
 	} else { // currency must be present and valid to get here
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
 		depositAddresses := make([]utils.DepositAddress, 1)
 		depositAddresses[0] = utils.DepositAddress{Address: "btc address", CurrencyID: "BTC", To: 6}
@@ -337,52 +329,52 @@ func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, ve
 	fmt.Println("curParamP:", curParamP, "curParamV", curParamV)
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
 
 	} else if !asignP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
 
 	} else if !atimestampP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
 
 	} else if !atimestampV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
 
 	} else if atimestampEx {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
 
 	} else if !akeyV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
 
 	} else if !asignV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
 	} else if curParamP && !curParamV {
 		fmt.Println("parameter exists but is not valid")
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 
 		// The currency param should exist
@@ -394,14 +386,14 @@ func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, ve
 			retVal, _ = json.Marshal(utils.Err30031(""))
 		}
 	} else if curParamP && curParamV {
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
 		withdrawalFees := make([]utils.WithdrawalFee, 1)
 		withdrawalFees[0] = utils.WithdrawalFee{CurrencyID: "c", MinFee: "minf", MaxFee: "maxf"}
 		retVal, _ = json.Marshal(withdrawalFees)
 
 	} else {
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
 		depositHistories := make([]utils.DepositHistory, 1)
 		depositHistories[0] = utils.DepositHistory{Amount: "amount", TXID: "txid", CurrencyID: "currency", From: "from", To: "to", DepositID: 666, Timestamp: "timestamp", Status: "status"}
@@ -432,52 +424,52 @@ func generateWalletResponse(w http.ResponseWriter, req *http.Request, verb strin
 
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
 
 	} else if !asignP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
 
 	} else if !atimestampP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
 
 	} else if !atimestampV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
 
 	} else if atimestampEx {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
 
 	} else if !akeyV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
 
 	} else if !asignV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
 
 	} else {
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
 		walletEntries := make([]utils.WalletEntry, 1)
 		walletEntries[0] = utils.WalletEntry{Available: "a", Balance: "b", CurrencyID: "c", Hold: "h"}
@@ -511,52 +503,52 @@ func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, ver
 	fmt.Println("curParamP:", curParamP, "curParamV", curParamV)
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
 
 	} else if !asignP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
 
 	} else if !atimestampP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
 
 	} else if !atimestampV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
 
 	} else if atimestampEx {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
 
 	} else if !akeyV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
 
 	} else if !asignV {
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(401)
 		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
 	} else if curParamP && !curParamV {
 		fmt.Println("parameter exists but is not valid")
-		setResponseHeaders(w, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
 
 		// The currency param should exist
@@ -568,14 +560,14 @@ func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, ver
 			retVal, _ = json.Marshal(utils.Err30031(""))
 		}
 	} else if curParamP && curParamV {
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
 		withdrawalFees := make([]utils.WithdrawalFee, 1)
 		withdrawalFees[0] = utils.WithdrawalFee{CurrencyID: "c", MinFee: "minf", MaxFee: "maxf"}
 		retVal, _ = json.Marshal(withdrawalFees)
 
 	} else {
-		setResponseHeaders(w, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
 		withdrawalFees := make([]utils.WithdrawalFee, 1)
 		withdrawalFees[0] = utils.WithdrawalFee{CurrencyID: "c", MinFee: "minf", MaxFee: "maxf"}
@@ -733,12 +725,16 @@ func main() {
 	txn.Commit()
 
 	// 4. Setup request handlers
+
+	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
 	http.HandleFunc("/api/account/v3/deposit/address", depositAddress)
 	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
 	http.HandleFunc("/api/account/v3/currencies", currencies)
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
 	http.HandleFunc("/credentials", credentials)
+
+	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
 	// 5. Let er rip!
 	http.ListenAndServe(":8090", nil)
