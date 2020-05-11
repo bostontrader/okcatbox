@@ -79,21 +79,11 @@ func generateAccountsResponse(w http.ResponseWriter, req *http.Request, verb str
 	} else {
 		setResponseHeaders(w, utils.ExpectedResponseHeadersB, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
-		accountsEntries := make([]AccountsEntry, 1)
-		accountsEntries[0] = AccountsEntry{AccountID: "aid", Available: "available", Balance: "balance", CurrencyID: "cid", Frozen: "frozen", Hold: "hold", Holds: "holds"}
+		accountsEntries := make([]utils.AccountsEntry, 1)
+		accountsEntries[0] = utils.AccountsEntry{AccountID: "aid", Available: "available", Balance: "balance", CurrencyID: "cid", Frozen: "frozen", Hold: "hold", Holds: "holds"}
 		retVal, _ := json.Marshal(accountsEntries)
 		return retVal
 	}
 
 	return
-}
-
-type AccountsEntry struct {
-	AccountID  string `json:"id"`
-	Available  string `json:"available"`
-	Balance    string `json:"balance"`
-	CurrencyID string `json:"currency"`
-	Frozen     string `json:"frozen"`
-	Hold       string `json:"hold"`
-	Holds      string `json:"holds"`
 }
