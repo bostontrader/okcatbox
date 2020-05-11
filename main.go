@@ -282,7 +282,7 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, ve
 	} else if !curParamP {
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30023()) // currency cannot be blank
+		retVal, _ = json.Marshal(utils.Err30023("currency cannot be blank"))
 	} else if curParamP && !curParamV {
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
 		w.WriteHeader(400)
