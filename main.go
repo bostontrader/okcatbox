@@ -471,8 +471,8 @@ func generateWalletResponse(w http.ResponseWriter, req *http.Request, verb strin
 	} else {
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
-		walletEntries := make([]utils.WalletEntry, 1)
-		walletEntries[0] = utils.WalletEntry{Available: "a", Balance: "b", CurrencyID: "c", Hold: "h"}
+		walletEntries := make([]utils.WalletEntry, 0)
+		//walletEntries[0] = utils.WalletEntry{Available: "a", Balance: "b", CurrencyID: "c", Hold: "h"}
 		retVal, _ := json.Marshal(walletEntries)
 		return retVal
 	}
