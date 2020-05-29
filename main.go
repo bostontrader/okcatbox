@@ -656,7 +656,7 @@ func withdrawalFee(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, string(retVal))
 }
 
-// /credentials
+// /catbox/credentials
 func credentials(w http.ResponseWriter, req *http.Request) {
 	retVal, _ := getCredentials()
 	fmt.Fprintf(w, string(retVal))
@@ -726,13 +726,15 @@ func main() {
 
 	// 4. Setup request handlers
 
+	// Unique to the Catbox
+	http.HandleFunc("/catbox/credentials", credentials)
+
 	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
 	http.HandleFunc("/api/account/v3/deposit/address", depositAddress)
 	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
 	http.HandleFunc("/api/account/v3/currencies", currencies)
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
-	http.HandleFunc("/credentials", credentials)
 
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 

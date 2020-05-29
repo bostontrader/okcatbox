@@ -12,12 +12,18 @@ script:
   - go build
   - ./okcatbox &
 
+  - CATBOX_URL=http://localhost:8090
+
+  # Unique to the Catbox
+  - CATBOX_CREDENTIALS=okcatbox-read.json
+  - curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
+
   # funding
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt currencies
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt deposit-address
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt deposit-history
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt wallet
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt withdrawalfee
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt currencies
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt deposit-address
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt deposit-history
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt wallet
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt withdrawalfee
 
   # spot
-  - okprobe -url http://localhost:8090 -errors -keyfile okcatbox-read.json -endpnt accounts
+  - okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt accounts
