@@ -780,7 +780,7 @@ func main() {
 
 	// Unique to the Catbox
 	http.HandleFunc("/catbox/credentials", credentials)
-	http.HandleFunc("/catbox/deposit", catbox_depositHandler)
+	//http.HandleFunc("/catbox/deposit", catbox_depositHandler)
 
 	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
