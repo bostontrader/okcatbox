@@ -13,4 +13,4 @@ script:
   - ./okcatbox
   - ./okcatbox -help
 
-  - ./travis-script
+  - ./travis-script.sh
