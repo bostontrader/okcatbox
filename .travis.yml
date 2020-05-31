@@ -10,11 +10,13 @@ script:
   - git clone https://github.com/bostontrader/okcatbox
   - cd okcatbox
   - go build
-  - ./okcatbox &
+  - ./okcatbox
+  - ./okcatbox -help
+  - ./okcatbox -config=okcatbox.yaml &
 
   - CATBOX_URL=http://localhost:8090
 
-  # Unique to the Catbox
+  # These credentials are unique to the Catbox
   - CATBOX_CREDENTIALS=okcatbox-read.json
   - curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
 

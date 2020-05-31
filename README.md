@@ -3,15 +3,34 @@
 
 # Welcome to the OKCatbox
 
-OKEx provides an API for using their service.  Unfortunately, learning how to use the real API looks suspiciously close to DOS and general hackery from their point of view.  And heaven forbid you actually launch the missiles by accident while you learn to use their API.  
+OKEx provides an API for using their service.  Unfortunately, learning how to use the real OKEx API looks suspiciously close to DOS and general hackery from their point of view.  And heaven forbid you actually launch the missiles by accident while you learn to use their API.  
 
 With the OKCatbox we attempt to simulate the real OKEx server.  This is of course easier said than done, but we've tried.  We will discuss divergences from reality shortly.
 
-OKEx provides a testnet of its own, but according to its docs, said testnet is limited to "futures and options contract".  At this time, the OKCatbox focuses on spot trading so it fills a need that OKEx doesn't already provide.
+OKEx provides a testnet of its own, but according to its docs, said testnet is limited to "futures and options contract".  At this time, the OKCatbox focuses on spot trading, so it fills a need that OKEx doesn't already provide.
 
 ## Getting Started
 
-The easiest way to get started is to use our online demo located at http://185.183.96.73:8090.  Using any tool of your choice, create appropriate HTTP requests and send them to said server.  One particularly helpful tool for this task is [OKProbe](http://github.com/bostontrader/okprobe). In fact, we will assume the use of OKProbe in these instructions.
+### The Easy Way
+
+The easiest way to get started is to use our online demo located at http://185.183.96.73:8090.  Using any tool of your choice, create the HTTP requests that you would ordinarily send to the real OKEx API but instead send them to the demo OKCatbox server.  One particularly helpful tool for this task is [OKProbe](http://github.com/bostontrader/okprobe). In fact, we will assume the use of OKProbe in these instructions.
+
+WARNING! [Danger!](https://www.youtube.com/watch?v=1IPPn9t6dyE).  Most of the OKEx API calls require credentials. When using the OKCatbox, especially when using our demo server, DO NOT use your real OKEx credentials!
+
+Instead, get your own credentials for the OKCatbox:
+
+```
+CATBOX_URL=http://185.183.96.73:8090
+CATBOX_CREDENTIALS=okcatbox.json
+curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
+```
+
+### The Hard Way
+
+git clone https://github.com/bostontrader/okcatbox
+cd okcatbox
+./okcatbox -help
+./okcatbox -config=okcatbox.yaml
 
 1. Install [OKProbe](http://github.com/bostontrader/okprobe)
 

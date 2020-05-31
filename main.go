@@ -2,17 +2,34 @@ package main
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"github.com/bostontrader/okcommon"
 	"github.com/hashicorp/go-memdb"
 	uuid "github.com/nu7hatch/gouuid"
+	"gopkg.in/yaml.v3"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"net/http"
+	"os"
 	"time"
 )
 
 // 1. Random necessities
 
+// The OKCatbox will use a Bookwerx server for its internal operation.
+type BookwerxConfig struct {
+	APIKey string
+	Server string
+}
+
+// When the OKCatbox executes it needs some configuration.
+type Config struct {
+	BookwerxConfig BookwerxConfig
+}
+
+// Most calls the OKCatbox API need some credentials
 var obj utils.Credentials
 
 // This is our in-memory db
@@ -664,7 +681,43 @@ func credentials(w http.ResponseWriter, req *http.Request) {
 
 func main() {
 
-	// 1. Create the in-memory DB schema and db
+	// 1. Setup CLI parsing
+	help := flag.Bool("help", false, "Guess what this flag does.")
+	config := flag.String("config", "/path/to/okcatbox.yaml", "The config file for the OKCatbox")
+
+	// Args[0] is the path to the program
+	// Args[1] is okcatbox
+	// Args[2:] are any remaining args.
+	if len(os.Args) < 2 { // Invoke w/o any args
+		flag.Usage()
+		return
+	}
+
+	flag.Parse()
+
+	if *help == true {
+		flag.Usage()
+		return
+	}
+
+	fmt.Println("The OKCatbox is using the following runtime args:")
+	fmt.Println("help:", *help)
+	fmt.Println("config:", *config)
+
+	// Try to read the config file.
+	data, err := ioutil.ReadFile(*config)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	t := Config{}
+
+	err = yaml.Unmarshal([]byte(data), &t)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	// 2. Create the in-memory DB schema and db
 	schema := &memdb.DBSchema{
 		Tables: map[string]*memdb.TableSchema{
 			"credentials": &memdb.TableSchema{
@@ -692,13 +745,12 @@ func main() {
 		},
 	}
 
-	var err error
 	db, err = memdb.NewMemDB(schema)
 	if err != nil {
 		panic(err)
 	}
 
-	// 2. Hardwire a first set of credentials
+	// 3. Hardwire a first set of credentials
 	txn := db.Txn(true)
 	n1 := &utils.Credentials{"47477ba4-74ad-4649-4c71-36c587a82c7d", "4790CA744289696413598ECBAB430B79", "valid passphrase"}
 	if err := txn.Insert("credentials", n1); err != nil {
@@ -706,7 +758,7 @@ func main() {
 	}
 	txn.Commit()
 
-	// 3. Hardwire a first set of withdrawal fees
+	// 4. Hardwire a first set of withdrawal fees
 	txn = db.Txn(true)
 	//n2 := []*utils.WithdrawalFee {
 	//&utils.WithdrawalFee{"BTC", "0.00040000", "0.01000000"},
@@ -724,10 +776,11 @@ func main() {
 
 	txn.Commit()
 
-	// 4. Setup request handlers
+	// 5. Setup request handlers
 
 	// Unique to the Catbox
 	http.HandleFunc("/catbox/credentials", credentials)
+	http.HandleFunc("/catbox/deposit", catbox_depositHandler)
 
 	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
@@ -738,6 +791,6 @@ func main() {
 
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
-	// 5. Let er rip!
+	// 6. Let er rip!
 	http.ListenAndServe(":8090", nil)
 }
