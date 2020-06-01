@@ -27,6 +27,7 @@ type BookwerxConfig struct {
 // When the OKCatbox executes it needs some configuration.
 type Config struct {
 	BookwerxConfig BookwerxConfig
+	ListenAddr     string
 }
 
 // Most calls the OKCatbox API need some credentials
@@ -710,9 +711,9 @@ func main() {
 		log.Fatalf("error: %v", err)
 	}
 
-	t := Config{}
+	cfg := Config{}
 
-	err = yaml.Unmarshal([]byte(data), &t)
+	err = yaml.Unmarshal([]byte(data), &cfg)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
@@ -792,5 +793,6 @@ func main() {
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
 	// 6. Let er rip!
-	http.ListenAndServe(":8090", nil)
+	http.ListenAndServe(cfg.ListenAddr, nil)
+	fmt.Println("The Catbox is listening to %s", cfg.ListenAddr)
 }

@@ -1,11 +1,16 @@
-# 1. Build a config file using the demo Bookwerx server.
+# 1. Build a config file...
+
+# 1.1 ... using the demo Bookwerx server.
 BSERVER="http://185.183.96.73:3003"
 APIKEY="$(curl -X POST $BSERVER/apikeys | jq -r .apikey)"
 echo "bookwerx:" >> okcatbox.yaml
 echo "  apikey: $APIKEY" >> okcatbox.yaml
 echo "  server: $BSERVER" >> okcatbox.yaml
 
-# 2. Execute the okcatbox using the prior created config
+# 1.2 ... set a listening address:port for the OKCatbox
+echo "listenaddr: :8090" >> okcatbox.yaml
+
+# 2. Execute the OKCatbox using the prior created config
 ./okcatbox -config=okcatbox.yaml &
 
 # 3. Execute okprobe commands against the okcatbox server
@@ -13,7 +18,6 @@ CATBOX_URL=http://localhost:8090
 
 # These credentials are unique to the Catbox
 CATBOX_CREDENTIALS=okcatbox-read.json
-#curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
 
 # funding
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt currencies
