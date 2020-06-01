@@ -13,7 +13,7 @@ CATBOX_URL=http://localhost:8090
 
 # These credentials are unique to the Catbox
 CATBOX_CREDENTIALS=okcatbox-read.json
-curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
+#curl -X POST $CATBOX_URL/credentials --output $CATBOX_CREDENTIALS
 
 # funding
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt currencies
