@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"github.com/bostontrader/okcommon"
 	"github.com/hashicorp/go-memdb"
-	uuid "github.com/nu7hatch/gouuid"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
 	"log"
@@ -19,15 +18,15 @@ import (
 // 1. Random necessities
 
 // The OKCatbox will use a Bookwerx server for its internal operation.
-type BookwerxConfig struct {
+type Bookwerx struct {
 	APIKey string
 	Server string
 }
 
 // When the OKCatbox executes it needs some configuration.
 type Config struct {
-	BookwerxConfig BookwerxConfig
-	ListenAddr     string
+	Bookwerx   Bookwerx
+	ListenAddr string
 }
 
 // Most calls the OKCatbox API need some credentials
@@ -623,30 +622,6 @@ func RandStringBytesMaskImprSrc(n int) string {
 	return string(b)
 }
 
-func getCredentials() ([]byte, error) {
-
-	u4, err := uuid.NewV4()
-	if err != nil {
-		panic(err)
-	}
-
-	var tryArr = make([]string, 1)
-	for i := range tryArr {
-		tryArr[i] = RandStringBytesMaskImprSrc(32)
-	}
-
-	n1 := &utils.Credentials{Key: u4.String(), SecretKey: tryArr[0], Passphrase: "valid passphrase"}
-
-	// Save this in the db
-	txn := db.Txn(true)
-	if err := txn.Insert("credentials", n1); err != nil {
-		panic(err)
-	}
-	txn.Commit()
-
-	return json.Marshal(n1)
-}
-
 // 2. Request handlers
 func currencies(w http.ResponseWriter, req *http.Request) {
 	retVal := generateCurrenciesResponse(w, req, "GET", "/api/account/v3/currencies")
@@ -671,12 +646,6 @@ func wallet(w http.ResponseWriter, req *http.Request) {
 // /api/account/v3/withdrawal/fee
 func withdrawalFee(w http.ResponseWriter, req *http.Request) {
 	retVal := generateWithdrawalFeeResponse(w, req, "GET", "/api/account/v3/withdrawal/fee")
-	fmt.Fprintf(w, string(retVal))
-}
-
-// /catbox/credentials
-func credentials(w http.ResponseWriter, req *http.Request) {
-	retVal, _ := getCredentials()
 	fmt.Fprintf(w, string(retVal))
 }
 
@@ -780,8 +749,10 @@ func main() {
 	// 5. Setup request handlers
 
 	// Unique to the Catbox
-	http.HandleFunc("/catbox/credentials", credentials)
-	//http.HandleFunc("/catbox/deposit", catbox_depositHandler)
+	http.HandleFunc("/catbox/credentials", catbox_credentialsHandler)
+	//http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
+	//catbox_depositHandler(w, req, cfg)
+	//})
 
 	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
@@ -793,6 +764,6 @@ func main() {
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
 	// 6. Let er rip!
+	fmt.Printf("The Catbox is listening to %s", cfg.ListenAddr)
 	http.ListenAndServe(cfg.ListenAddr, nil)
-	fmt.Println("The Catbox is listening to %s", cfg.ListenAddr)
 }
