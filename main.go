@@ -750,9 +750,9 @@ func main() {
 
 	// Unique to the Catbox
 	http.HandleFunc("/catbox/credentials", catbox_credentialsHandler)
-	//http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
-	//catbox_depositHandler(w, req, cfg)
-	//})
+	http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
+		catbox_depositHandler(w, req, cfg)
+	})
 
 	// Funding
 	http.HandleFunc("/api/account/v3/wallet", wallet)
@@ -764,6 +764,6 @@ func main() {
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
 	// 6. Let er rip!
-	fmt.Printf("The Catbox is listening to %s", cfg.ListenAddr)
+	fmt.Printf("The Catbox is listening to %s\n", cfg.ListenAddr)
 	http.ListenAndServe(cfg.ListenAddr, nil)
 }
