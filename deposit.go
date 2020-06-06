@@ -32,6 +32,11 @@ func GetClient(urlBase string) (client *http.Client) {
 
 }
 
+func squeal(s string) (_ []byte) {
+	log.Println(s)
+	return []byte(s)
+}
+
 /*
 Recall that this method is a convenience method for the OKCatbox.  It doesn't exist in
 the real OKEx API.
@@ -75,11 +80,11 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 
 		raw, err := txn.First("credentials", "id", api_key)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 1.1: ", err))
 		}
 
 		if raw == nil {
-			return []byte("the api_key is not defined on this OKCatbox server.")
+			return squeal(fmt.Sprintf("deposit.go 1.1.1: The api_key %s is not defined on this OKCatbox server.", api_key))
 		}
 
 		// 1.2 currency_symbol
@@ -88,25 +93,23 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		// Determine the Bookwerx currency_id, thereby verifying that said currency is defined.
 		url := fmt.Sprintf("%s/currencies?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
 		client := GetClient(url)
-		req1, err := http.NewRequest("GET", url, nil)
-		resp, err := client.Do(req1)
+		reqA, err := http.NewRequest("GET", url, nil)
+		respA, err := client.Do(reqA)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 1.2: %v", err))
 		}
+		defer respA.Body.Close()
 
-		if resp.StatusCode != 200 {
-			fmt.Println("error:\nexpected= ", 200, "\nreceived=", resp.StatusCode)
+		if respA.StatusCode != 200 {
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respA.Body))
 		}
 
 		currencies := make([]Currency, 0)
-
-		dec := json.NewDecoder(resp.Body)
-		//dec.DisallowUnknownFields()
+		dec := json.NewDecoder(respA.Body)
 		err = dec.Decode(&currencies)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 1.2.2: ", err))
 		}
-		resp.Body.Close()
 
 		// Now search for the specific currency_symbol
 		found := false
@@ -119,14 +122,14 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			}
 		}
 		if !found {
-			return []byte(fmt.Sprintf("The currency %s is not defined on this OKCatbox server.", currency_symbol))
+			return squeal(fmt.Sprintf("deposit.go 1.2.3: The currency %s is not defined on this OKCatbox server.", currency_symbol))
 		}
 
 		// 1.3 Quantity
 		quanf := req.FormValue("quan")
 		quand, err := decimal.NewFromString(quanf)
 		if err != nil {
-			return []byte(fmt.Sprintf("The quan %s cannot be parsed.", quanf))
+			return squeal(fmt.Sprintf("deposit.go 1.3 The quan %s cannot be parsed.", quanf))
 		}
 
 		quans := quand.Abs().Coefficient().String()
@@ -140,32 +143,30 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			cramt = quans
 			dramt = "-" + cramt
 		}
-		fmt.Println(quans)
 
 		// 1.4 Time.  Just a string, no validation.
 		time := req.FormValue("time")
 
 		// 2. Does the funding account for this api_key, currency exist?
 		url = fmt.Sprintf("%s/accounts?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
-		req, err = http.NewRequest("GET", url, nil)
-		resp, err = client.Do(req)
+		reqB, err := http.NewRequest("GET", url, nil)
+		respB, err := client.Do(reqB)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 2: %v", err))
 		}
+		defer respB.Body.Close()
 
-		if resp.StatusCode != 200 {
-			fmt.Println("error 2:\nexpected= ", 200, "\nreceived=", resp.StatusCode)
+		if respB.StatusCode != 200 {
+			return squeal(fmt.Sprintf("deposit.go 2.1: Expected status=", 200, ", Received=", respB.StatusCode, ", Body=", respB.Body))
 		}
 
 		accountJoineds := make([]AccountJoined, 0)
 
-		dec = json.NewDecoder(resp.Body)
-		//dec.DisallowUnknownFields()
+		dec = json.NewDecoder(respB.Body)
 		err = dec.Decode(&accountJoineds)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 2.2: ", err))
 		}
-		resp.Body.Close()
 
 		// Can I find an account named #{api_key} using the same currency, that is tagged with the customer funding category?
 		var account_id string
@@ -184,26 +185,25 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		if !account_exists {
 			url = fmt.Sprintf("%s/accounts", cfg.Bookwerx.Server)
 
-			req, err = http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&currency_id=%s&rarity=0&title=%s", cfg.Bookwerx.APIKey, currency_id, api_key)))
+			reqC, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&currency_id=%s&rarity=0&title=%s", cfg.Bookwerx.APIKey, currency_id, api_key)))
 
-			req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-			resp, err = client.Do(req)
+			reqC.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+			respC, err := client.Do(reqC)
 			if err != nil {
-				log.Fatalf("error: %v", err)
+				return squeal(fmt.Sprintf("deposit.go 2.3: %v", err))
 			}
+			defer respC.Body.Close()
 
-			if resp.StatusCode != 200 {
-				fmt.Println("error 2.1:\nexpected= ", 200, "\nreceived=", resp.StatusCode)
+			if respC.StatusCode != 200 {
+				return squeal(fmt.Sprintf("deposit.go 2.4: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respC.Body))
 			}
 
 			var insert Data
-			dec = json.NewDecoder(resp.Body)
-			//dec.DisallowUnknownFields()
+			dec = json.NewDecoder(respC.Body)
 			err = dec.Decode(&insert)
 			if err != nil {
-				log.Fatalf("error: %v", err)
+				return squeal(fmt.Sprintf("deposit.go 2.5: %v", err))
 			}
-			resp.Body.Close()
 		}
 
 		// 3. Now create the transaction and the two distributions using three requests.
@@ -212,77 +212,71 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 
 		// 3.1 Create the tx
 		url = fmt.Sprintf("%s/transactions", cfg.Bookwerx.Server)
-		req, err = http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&notes=deposit&time=%s", cfg.Bookwerx.APIKey, time)))
+		reqD, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&notes=deposit&time=%s", cfg.Bookwerx.APIKey, time)))
 
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		req.Close = true
-		resp, err = client.Do(req)
+		reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		reqD.Close = true
+		respD, err := client.Do(reqD)
 		if err != nil {
-			log.Fatalf("error 3.1: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.1: %v", err))
 		}
+		defer respD.Body.Close()
 
-		if resp.StatusCode != 200 {
-			fmt.Println("error 3.1:\nexpected= ", 200, "\nreceived=", resp.StatusCode, resp.Body)
+		if respD.StatusCode != 200 {
+			return squeal(fmt.Sprintf("deposit.go 3.1.1: Expected status=", 200, ", Received=", respD.StatusCode, ", Body=", respA.Body))
 		}
 
 		var insert Data
-		dec = json.NewDecoder(resp.Body)
-		//dec.DisallowUnknownFields()
+		dec = json.NewDecoder(respD.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.1.2: ", err))
 		}
 		txid := strconv.Itoa(insert.Data.LID)
-		resp.Body.Close()
 
 		// 3.2 Create the DR distributions
 		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
 
 		// HACK! Hardwired hot-wallet account_id.  Fix this!
-		req, err = http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=117&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, dramt, exp, txid)))
+		reqE, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=117&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, dramt, exp, txid)))
 
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		req.Close = true
-		resp, err = client.Do(req)
+		reqE.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		reqE.Close = true
+		respE, err := client.Do(reqE)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.2.1: %v", err))
 		}
 
-		if resp.StatusCode != 200 {
-			fmt.Println("error 3.2:\nexpected= ", 200, "\nreceived=", resp.StatusCode)
+		if respE.StatusCode != 200 {
+			return squeal(fmt.Sprintf("deposit.go 3.2.2: Expected status=", 200, ", Received=", respE.StatusCode, ", Body=", respA.Body))
 		}
 
-		dec = json.NewDecoder(resp.Body)
-		//dec.DisallowUnknownFields()
+		dec = json.NewDecoder(respE.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.2.3: ", err))
 		}
-		resp.Body.Close()
 
 		// 3.3 Create the CR distributions
 		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
-		req, err = http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)))
+		reqF, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)))
 
-		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		req.Close = true
-		resp, err = client.Do(req)
+		reqF.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		reqF.Close = true
+		respF, err := client.Do(reqF)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.3.1: %v", err))
 		}
 
-		if resp.StatusCode != 200 {
-			fmt.Println("error 3.3:\nexpected= ", 200, "\nreceived=", resp.StatusCode)
+		if respF.StatusCode != 200 {
+			return squeal(fmt.Sprintf("deposit.go 3.3.2: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respA.Body))
 		}
 
-		dec = json.NewDecoder(resp.Body)
-		//dec.DisallowUnknownFields()
+		dec = json.NewDecoder(respF.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			log.Fatalf("error: %v", err)
+			return squeal(fmt.Sprintf("deposit.go 3.3.3: ", err))
 		}
-		resp.Body.Close()
-
 		return []byte("success")
 
 	} else {
