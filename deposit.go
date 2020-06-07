@@ -80,7 +80,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 
 		raw, err := txn.First("credentials", "id", api_key)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.1: ", err))
+			return squeal(fmt.Sprintf("deposit.go 1.1: %v", err))
 		}
 
 		if raw == nil {
@@ -101,14 +101,14 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respA.Body.Close()
 
 		if respA.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respA.StatusCode, respA.Body))
 		}
 
 		currencies := make([]Currency, 0)
 		dec := json.NewDecoder(respA.Body)
 		err = dec.Decode(&currencies)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.2.2: ", err))
+			return squeal(fmt.Sprintf("deposit.go 1.2.2: %v", err))
 		}
 
 		// Now search for the specific currency_symbol
@@ -157,7 +157,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respB.Body.Close()
 
 		if respB.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 2.1: Expected status=", 200, ", Received=", respB.StatusCode, ", Body=", respB.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respB.StatusCode, respB.Body))
 		}
 
 		accountJoineds := make([]AccountJoined, 0)
@@ -195,7 +195,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			defer respC.Body.Close()
 
 			if respC.StatusCode != 200 {
-				return squeal(fmt.Sprintf("deposit.go 2.4: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respC.Body))
+				return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respC.StatusCode, respC.Body))
 			}
 
 			var insert Data
@@ -223,14 +223,14 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respD.Body.Close()
 
 		if respD.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 3.1.1: Expected status=", 200, ", Received=", respD.StatusCode, ", Body=", respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respD.StatusCode, respD.Body))
 		}
 
 		var insert Data
 		dec = json.NewDecoder(respD.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.1.2: ", err))
+			return squeal(fmt.Sprintf("deposit.go 3.1.2: %v", err))
 		}
 		txid := strconv.Itoa(insert.Data.LID)
 
@@ -248,13 +248,13 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		}
 
 		if respE.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 3.2.2: Expected status=", 200, ", Received=", respE.StatusCode, ", Body=", respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respE.StatusCode, respE.Body))
 		}
 
 		dec = json.NewDecoder(respE.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.2.3: ", err))
+			return squeal(fmt.Sprintf("deposit.go 3.2.3: %v", err))
 		}
 
 		// 3.3 Create the CR distributions
@@ -269,13 +269,13 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		}
 
 		if respF.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 3.3.2: Expected status=", 200, ", Received=", respA.StatusCode, ", Body=", respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respF.StatusCode, respF.Body))
 		}
 
 		dec = json.NewDecoder(respF.Body)
 		err = dec.Decode(&insert)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.3.3: ", err))
+			return squeal(fmt.Sprintf("deposit.go 3.3.3: %v", err))
 		}
 		return []byte("success")
 
