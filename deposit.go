@@ -94,6 +94,8 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		url := fmt.Sprintf("%s/currencies?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
 		client := GetClient(url)
 		reqA, err := http.NewRequest("GET", url, nil)
+		reqA.Close = true
+
 		respA, err := client.Do(reqA)
 		if err != nil {
 			return squeal(fmt.Sprintf("deposit.go 1.2: %v", err))
@@ -101,7 +103,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respA.Body.Close()
 
 		if respA.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respA.StatusCode, respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respA.StatusCode, respA.Body))
 		}
 
 		currencies := make([]Currency, 0)
@@ -150,6 +152,8 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		// 2. Does the funding account for this api_key, currency exist?
 		url = fmt.Sprintf("%s/accounts?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
 		reqB, err := http.NewRequest("GET", url, nil)
+		reqB.Close = true
+
 		respB, err := client.Do(reqB)
 		if err != nil {
 			return squeal(fmt.Sprintf("deposit.go 2: %v", err))
@@ -157,7 +161,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respB.Body.Close()
 
 		if respB.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respB.StatusCode, respB.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respB.StatusCode, respB.Body))
 		}
 
 		accountJoineds := make([]AccountJoined, 0)
@@ -186,6 +190,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			url = fmt.Sprintf("%s/accounts", cfg.Bookwerx.Server)
 
 			reqC, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&currency_id=%s&rarity=0&title=%s", cfg.Bookwerx.APIKey, currency_id, api_key)))
+			reqC.Close = true
 
 			reqC.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 			respC, err := client.Do(reqC)
@@ -195,7 +200,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			defer respC.Body.Close()
 
 			if respC.StatusCode != 200 {
-				return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respC.StatusCode, respC.Body))
+				return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respC.StatusCode, respC.Body))
 			}
 
 			var insert Data
@@ -213,9 +218,9 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		// 3.1 Create the tx
 		url = fmt.Sprintf("%s/transactions", cfg.Bookwerx.Server)
 		reqD, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&notes=deposit&time=%s", cfg.Bookwerx.APIKey, time)))
+		reqD.Close = true
 
 		reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		reqD.Close = true
 		respD, err := client.Do(reqD)
 		if err != nil {
 			return squeal(fmt.Sprintf("deposit.go 3.1: %v", err))
@@ -223,7 +228,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respD.Body.Close()
 
 		if respD.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respD.StatusCode, respD.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respD.StatusCode, respD.Body))
 		}
 
 		var insert Data
@@ -239,16 +244,17 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 
 		// HACK! Hardwired hot-wallet account_id.  Fix this!
 		reqE, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=117&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, dramt, exp, txid)))
+		reqE.Close = true
 
 		reqE.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		reqE.Close = true
 		respE, err := client.Do(reqE)
 		if err != nil {
 			return squeal(fmt.Sprintf("deposit.go 3.2.1: %v", err))
 		}
+		defer respE.Body.Close()
 
 		if respE.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respE.StatusCode, respE.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respE.StatusCode, respE.Body))
 		}
 
 		dec = json.NewDecoder(respE.Body)
@@ -260,16 +266,17 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		// 3.3 Create the CR distributions
 		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
 		reqF, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)))
+		reqF.Close = true
 
 		reqF.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		reqF.Close = true
 		respF, err := client.Do(reqF)
 		if err != nil {
 			return squeal(fmt.Sprintf("deposit.go 3.3.1: %v", err))
 		}
+		defer respF.Body.Close()
 
 		if respF.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%i, Body=%v", respF.StatusCode, respF.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respF.StatusCode, respF.Body))
 		}
 
 		dec = json.NewDecoder(respF.Body)
