@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/shopspring/decimal"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"strconv"
@@ -35,6 +36,15 @@ func GetClient(urlBase string) (client *http.Client) {
 func squeal(s string) (_ []byte) {
 	log.Println(s)
 	return []byte(s)
+}
+
+// Given a response object, read the body and return it as a string.  Deal with the error message if necessary.
+func body_string(resp *http.Response) string {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return fmt.Sprintf("deposit.go body_string :%v", err)
+	}
+	return string(body)
 }
 
 /*
@@ -103,7 +113,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respA.Body.Close()
 
 		if respA.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respA.StatusCode, respA.Body))
+			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respA.StatusCode, body_string(respA)))
 		}
 
 		currencies := make([]Currency, 0)
@@ -161,7 +171,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respB.Body.Close()
 
 		if respB.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respB.StatusCode, respB.Body))
+			return squeal(fmt.Sprintf("deposit.go 2.1: Expected status=200, Received=%d, Body=%v", respB.StatusCode, body_string(respB)))
 		}
 
 		accountJoineds := make([]AccountJoined, 0)
@@ -200,7 +210,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 			defer respC.Body.Close()
 
 			if respC.StatusCode != 200 {
-				return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respC.StatusCode, respC.Body))
+				return squeal(fmt.Sprintf("deposit.go 2.4: Expected status=200, Received=%d, Body=%v", respC.StatusCode, body_string(respC)))
 			}
 
 			var insert Data
@@ -228,7 +238,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respD.Body.Close()
 
 		if respD.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respD.StatusCode, respD.Body))
+			return squeal(fmt.Sprintf("deposit.go 3.1.1: Expected status=200, Received=%d, Body=%v", respD.StatusCode, body_string(respD)))
 		}
 
 		var insert Data
@@ -254,7 +264,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respE.Body.Close()
 
 		if respE.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respE.StatusCode, respE.Body))
+			return squeal(fmt.Sprintf("deposit.go 3.2.2: Expected status=200, Received=%d, Body=%v", respE.StatusCode, body_string(respE)))
 		}
 
 		dec = json.NewDecoder(respE.Body)
@@ -265,7 +275,9 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 
 		// 3.3 Create the CR distributions
 		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
-		reqF, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)))
+		s := fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)
+
+		reqF, err := http.NewRequest("POST", url, strings.NewReader(s))
 		reqF.Close = true
 
 		reqF.Header.Add("Content-Type", "application/x-www-form-urlencoded")
@@ -276,7 +288,8 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		defer respF.Body.Close()
 
 		if respF.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respF.StatusCode, respF.Body))
+			log.Println("deposit.go 3.3.1.5: Error posting %s", s)
+			return squeal(fmt.Sprintf("deposit.go 3.3.2: Expected status=200, Received=%d, Body=%v", respF.StatusCode, body_string(respF)))
 		}
 
 		dec = json.NewDecoder(respF.Body)
