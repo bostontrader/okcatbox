@@ -65,7 +65,6 @@ func validateAccessKey(headers map[string][]string) (exists, valid bool) {
 		if raw == nil {
 			// not found, do nothing, flag already correctly set
 		} else {
-			fmt.Printf(raw.(*utils.Credentials).Key)
 			obj.Key = raw.(*utils.Credentials).Key
 			obj.SecretKey = raw.(*utils.Credentials).SecretKey
 			obj.Passphrase = raw.(*utils.Credentials).Passphrase
@@ -123,7 +122,6 @@ func validateSign(req *http.Request) (exists, valid bool) {
 			// Now build a signature
 			timestamp := tsValue[0]
 			prehash := timestamp + req.Method + req.RequestURI
-			fmt.Println("prehash: ", prehash)
 			encoded, _ := utils.HmacSha256Base64Signer(prehash, obj.SecretKey)
 			if sigValue[0] == encoded {
 				valid = true
@@ -156,8 +154,6 @@ func validateTimestamp(headers map[string][]string) (exists, valid, expired bool
 
 func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
 
-	fmt.Println(req, "\n")
-
 	retVal, err := checkSigHeaders(w, req)
 	if err {
 		return
@@ -177,8 +173,6 @@ func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb s
 
 func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
 
-	fmt.Println(req, "\n")
-
 	retVal, err := checkSigHeaders(w, req)
 	if err {
 		return
@@ -195,8 +189,6 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, ve
 }
 
 func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	fmt.Println(req, "\n")
 
 	retVal, err := checkSigHeaders(w, req)
 	if err {
@@ -215,8 +207,6 @@ func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, ve
 }
 
 func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	fmt.Println(req, "\n")
 
 	retVal, err := checkSigHeaders(w, req)
 	if err {

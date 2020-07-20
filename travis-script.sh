@@ -40,15 +40,18 @@ CATBOX_CREDENTIALS=okcatbox-read.json
 curl -X POST $CATBOX_URL/catbox/credentials --output $CATBOX_CREDENTIALS
 CB_APIKEY="$(cat okcatbox-read.json | jq -r .api_key)"
 
-# 4.2 Simulate the deposit of coin into the funding account.
+# 4.2 Simulate the deposit of coin into the funding account and check the wallet
 curl -d "apikey=$CB_APIKEY&currency_symbol=BTC&quan=0.5&time=2020-07-21T" $CATBOX_URL/catbox/deposit
+okprobe -url $CATBOX_URL -keyfile $CATBOX_CREDENTIALS -endpnt wallet
 
-# funding
+# 5. Now okprobe all the endpoint and request invocation errors.
+
+# 5.1 funding
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt currencies
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt deposit-address
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt deposit-history
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt wallet
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt withdrawal-fee
 
-# spot
+# 5.2 spot
 okprobe -url $CATBOX_URL -errors -keyfile $CATBOX_CREDENTIALS -endpnt accounts

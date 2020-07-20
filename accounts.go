@@ -14,8 +14,6 @@ func accountsHandler(w http.ResponseWriter, req *http.Request) {
 
 func generateAccountsResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
 
-	fmt.Println(req, "\n")
-
 	retVal, err := checkSigHeaders(w, req)
 	if err {
 		return

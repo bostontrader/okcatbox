@@ -139,7 +139,6 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 			fmt.Fprintf(w, err.Error())
 			return
 		}
-		fmt.Printf(time, ok_access_key8, exp, currency_id)
 		return []byte("success")
 
 	} else {
