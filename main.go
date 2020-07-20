@@ -6,9 +6,9 @@ import (
 	"fmt"
 	"github.com/bostontrader/okcommon"
 	"github.com/hashicorp/go-memdb"
+	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"log"
 	"math/rand"
 	"net/http"
 	"os"
@@ -19,8 +19,9 @@ import (
 
 // The OKCatbox will use a Bookwerx server for its internal operation.
 type Bookwerx struct {
-	APIKey string
-	Server string
+	APIKey  string
+	Server  string
+	Funding int32
 }
 
 // When the OKCatbox executes it needs some configuration.
@@ -282,6 +283,12 @@ func withdrawalFee(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, string(retVal))
 }
 
+// Log this string and return it as a []byte
+//func squeal(s string) (_ []byte) {
+//log.Println(s)
+//return []byte(s)
+//}
+
 func main() {
 
 	// 1. Setup CLI parsing
@@ -303,9 +310,9 @@ func main() {
 		return
 	}
 
-	fmt.Println("The OKCatbox is using the following runtime args:")
-	fmt.Println("help:", *help)
-	fmt.Println("config:", *config)
+	log.Println("The OKCatbox is using the following runtime args:")
+	log.Println("help:", *help)
+	log.Println("config:", *config)
 
 	// Try to read the config file.
 	data, err := ioutil.ReadFile(*config)
@@ -354,15 +361,15 @@ func main() {
 	}
 
 	// 3. Hardwire a first set of credentials
-	txn := db.Txn(true)
-	n1 := &utils.Credentials{"47477ba4-74ad-4649-4c71-36c587a82c7d", "4790CA744289696413598ECBAB430B79", "valid passphrase"}
-	if err := txn.Insert("credentials", n1); err != nil {
-		panic(err)
-	}
-	txn.Commit()
+	//txn := db.Txn(true)
+	//n1 := &utils.Credentials{"47477ba4-74ad-4649-4c71-36c587a82c7d", "4790CA744289696413598ECBAB430B79", "valid passphrase"}
+	//if err := txn.Insert("credentials", n1); err != nil {
+	//panic(err)
+	//}
+	//txn.Commit()
 
 	// 4. Hardwire a first set of withdrawal fees
-	txn = db.Txn(true)
+	txn := db.Txn(true)
 	//n2 := []*utils.WithdrawalFee {
 	//&utils.WithdrawalFee{"BTC", "0.00040000", "0.01000000"},
 	//&utils.WithdrawalFee{"LTC", "0.00100000", "0.00200000"},
@@ -382,13 +389,19 @@ func main() {
 	// 5. Setup request handlers
 
 	// Unique to the Catbox
-	http.HandleFunc("/catbox/credentials", catbox_credentialsHandler)
+	//http.HandleFunc("/catbox/credentials", catbox_credentialsHandler)
+	http.HandleFunc("/catbox/credentials", func(w http.ResponseWriter, req *http.Request) {
+		catbox_credentialsHandler(w, req, cfg)
+	})
 	http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
 		catbox_depositHandler(w, req, cfg)
 	})
 
 	// Funding
-	http.HandleFunc("/api/account/v3/wallet", walletHandler)
+	http.HandleFunc("/api/account/v3/wallet", func(w http.ResponseWriter, req *http.Request) {
+		catbox_walletHandler(w, req, cfg)
+	})
+
 	http.HandleFunc("/api/account/v3/deposit/address", depositAddress)
 	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
 	http.HandleFunc("/api/account/v3/currencies", currencies)
@@ -397,6 +410,6 @@ func main() {
 	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
 
 	// 6. Let er rip!
-	fmt.Printf("The Catbox is listening to %s\n", cfg.ListenAddr)
+	log.Printf("The Catbox is listening to %s\n", cfg.ListenAddr)
 	http.ListenAndServe(cfg.ListenAddr, nil)
 }

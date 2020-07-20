@@ -1,147 +1,78 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
+	"github.com/gojektech/heimdall/httpclient"
 	"github.com/shopspring/decimal"
-	"io/ioutil"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
-	"strconv"
-	"strings"
 	"time"
 )
 
 // /catbox/deposit
 func catbox_depositHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
-	retVal := generateCatboxDepositResponse(w, req, "POST", "/catbox/deposit", cfg)
+	retVal := generateCatboxDepositResponse(w, req, cfg)
 	fmt.Fprintf(w, string(retVal))
 }
 
-func GetClient(urlBase string) (client *http.Client) {
-
-	if len(urlBase) >= 6 && urlBase[:6] == "https:" {
-		tr := &http.Transport{
-			MaxIdleConns:       10,
-			IdleConnTimeout:    30 * time.Second,
-			DisableCompression: true,
-		}
-		return &http.Client{Transport: tr}
-	}
-
-	return &http.Client{}
-
-}
-
-func squeal(s string) (_ []byte) {
-	log.Println(s)
-	return []byte(s)
-}
-
-// Given a response object, read the body and return it as a string.  Deal with the error message if necessary.
-func body_string(resp *http.Response) string {
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Sprintf("deposit.go body_string :%v", err)
-	}
-	return string(body)
-}
-
-/*
-Recall that this method is a convenience method for the OKCatbox.  It doesn't exist in
-the real OKEx API.
-*/
-func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string, cfg Config) (retVal []byte) {
-
-	// Only a subset of the available fields,,
-	type Currency struct {
-		CurrencyID int `json:"id"`
-		Symbol     string
-	}
-
-	type CurrencyShort struct {
-		Symbol string
-		Title  string
-	}
-
-	// We only need a subset of all the info returned.
-	type AccountJoined struct {
-		AccountID     int           `json:"id"`
-		CurrencyShort CurrencyShort `json:"currency"`
-		Title         string
-	}
-
-	type Insert struct {
-		LID int `json:"last_insert_id"`
-	}
-
-	type Data struct {
-		Data Insert `json:"data"`
-	}
+func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg Config) (retVal []byte) {
 
 	if req.Method == http.MethodPost {
 
-		// 1. Retrieve and validate the request parameters
+		// 1. Retrieve and validate the request parameters.
+		if err := req.ParseForm(); err != nil {
+			s := fmt.Sprintf("deposit.go ParseForm 1 err: %v", err)
+			log.Error(s)
+			fmt.Fprintf(w, s)
+			return
+		}
 
-		// 1.1 api_key
-		api_key := req.FormValue("api_key") // OKCatbox key
+		log.Printf("%s %s %s %s", req.Method, req.URL, req.Header, req.Form)
+
+		// 1.1 OKCatbox apikey.
+		apikey := req.FormValue("apikey")
+		ok_access_key8 := apikey[:8]
+		// Is this key defined with this OKCatbox server?
 		txn := db.Txn(false)
 		defer txn.Abort()
 
-		raw, err := txn.First("credentials", "id", api_key)
+		raw, err := txn.First("credentials", "id", apikey)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.1: %v", err))
+			s := fmt.Sprintf("deposit.go generateCatboxDepositResponse 1.1: %v", err)
+			log.Error(s)
+			fmt.Fprintf(w, s)
+			return
 		}
 
 		if raw == nil {
-			return squeal(fmt.Sprintf("deposit.go 1.1.1: The api_key %s is not defined on this OKCatbox server.", api_key))
+			s := fmt.Sprintf("deposit.go generateCatboxDepositResponse 1.1a: The apikey %s is not defined on this OKCatbox server.", apikey)
+			log.Error(s)
+			fmt.Fprintf(w, s)
+			return
 		}
+
+		// We'll need an HTTP client for the subsequent requests.
+		timeout := 5000 * time.Millisecond
+		client := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
 
 		// 1.2 currency_symbol
 		currency_symbol := req.FormValue("currency_symbol")
-
-		// Determine the Bookwerx currency_id, thereby verifying that said currency is defined.
-		url := fmt.Sprintf("%s/currencies?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
-		client := GetClient(url)
-		reqA, err := http.NewRequest("GET", url, nil)
-		reqA.Close = true
-
-		respA, err := client.Do(reqA)
+		currency_id, err := getCurrencyBySym(client, currency_symbol, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.2: %v", err))
-		}
-		defer respA.Body.Close()
-
-		if respA.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 1.2.1: Expected status=200, Received=%d, Body=%v", respA.StatusCode, body_string(respA)))
-		}
-
-		currencies := make([]Currency, 0)
-		dec := json.NewDecoder(respA.Body)
-		err = dec.Decode(&currencies)
-		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.2.2: %v", err))
-		}
-
-		// Now search for the specific currency_symbol
-		found := false
-		var currency_id string
-		for _, v := range currencies {
-			if strings.EqualFold(v.Symbol, currency_symbol) { // case insensitive compare
-				found = true
-				currency_id = strconv.Itoa(v.CurrencyID)
-				break
-			}
-		}
-		if !found {
-			return squeal(fmt.Sprintf("deposit.go 1.2.3: The currency %s is not defined on this OKCatbox server.", currency_symbol))
+			s := fmt.Sprintf("deposit.go generateCatboxDepositResponse 1.2: The currency_symbol %s is not defined on this OKCatbox server.", currency_symbol)
+			log.Error(s)
+			fmt.Fprintf(w, s)
+			return
 		}
 
 		// 1.3 Quantity
 		quanf := req.FormValue("quan")
 		quand, err := decimal.NewFromString(quanf)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 1.3 The quan %s cannot be parsed.", quanf))
+			s := fmt.Sprintf("deposit.go 1.3 The quan %s cannot be parsed.", quanf)
+			log.Error(s)
+			fmt.Fprintf(w, s)
+			return
 		}
 
 		quans := quand.Abs().Coefficient().String()
@@ -159,147 +90,60 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, ver
 		// 1.4 Time.  Just a string, no validation.
 		time := req.FormValue("time")
 
-		// 2. Does the funding account for this api_key, currency exist?
-		url = fmt.Sprintf("%s/accounts?apikey=%s", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey)
-		reqB, err := http.NewRequest("GET", url, nil)
-		reqB.Close = true
-
-		respB, err := client.Do(reqB)
+		// 2.  Get the list of all accounts along with joined currency and category info.  We'll need to search this later.
+		accounts, err := getAccounts(client, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 2: %v", err))
-		}
-		defer respB.Body.Close()
-
-		if respB.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 2.1: Expected status=200, Received=%d, Body=%v", respB.StatusCode, body_string(respB)))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
 
-		accountJoineds := make([]AccountJoined, 0)
-
-		dec = json.NewDecoder(respB.Body)
-		err = dec.Decode(&accountJoineds)
+		// 3.  Get the account_id of the Hot Wallet for this currency.  It must exist so error if not found.
+		account_id_hot, err := getHotWalletAccountID(client, accounts, currency_symbol, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 2.2: ", err))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
 
-		// Can I find an account named #{api_key} using the same currency, that is tagged with the customer funding category?
-		var account_id string
-		account_exists := false
-		for _, accountJoined := range accountJoineds {
-			if accountJoined.Title == api_key {
-				if strings.EqualFold(accountJoined.CurrencyShort.Symbol, currency_symbol) { // case insensitive compare
-					// is this account tagged 'funding'  Figure this out later.
-					account_id = strconv.Itoa(accountJoined.AccountID)
-					account_exists = true
-				}
-			}
-		}
-
-		// If the account doesn't already exist, then create it.
-		if !account_exists {
-			url = fmt.Sprintf("%s/accounts", cfg.Bookwerx.Server)
-
-			reqC, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&currency_id=%s&rarity=0&title=%s", cfg.Bookwerx.APIKey, currency_id, api_key)))
-			reqC.Close = true
-
-			reqC.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-			respC, err := client.Do(reqC)
-			if err != nil {
-				return squeal(fmt.Sprintf("deposit.go 2.3: %v", err))
-			}
-			defer respC.Body.Close()
-
-			if respC.StatusCode != 200 {
-				return squeal(fmt.Sprintf("deposit.go 2.4: Expected status=200, Received=%d, Body=%v", respC.StatusCode, body_string(respC)))
-			}
-
-			var insert Data
-			dec = json.NewDecoder(respC.Body)
-			err = dec.Decode(&insert)
-			if err != nil {
-				return squeal(fmt.Sprintf("deposit.go 2.5: %v", err))
-			}
-		}
-
-		// 3. Now create the transaction and the two distributions using three requests.
-
-		//time.Sleep(1000 * time.Millisecond)
-
-		// 3.1 Create the tx
-		url = fmt.Sprintf("%s/transactions", cfg.Bookwerx.Server)
-		reqD, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&notes=deposit&time=%s", cfg.Bookwerx.APIKey, time)))
-		reqD.Close = true
-
-		reqD.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		respD, err := client.Do(reqD)
+		// 4. Get the account_id of the funding account for this user.  It might not exist yet so create it if necessary. Either way return the account_id
+		account_id_api, err := getFundingAccountID(client, accounts, ok_access_key8, currency_id, currency_symbol, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.1: %v", err))
-		}
-		defer respD.Body.Close()
-
-		if respD.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 3.1.1: Expected status=200, Received=%d, Body=%v", respD.StatusCode, body_string(respD)))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
 
-		var insert Data
-		dec = json.NewDecoder(respD.Body)
-		err = dec.Decode(&insert)
+		// 5. Now create the transaction and the two distributions using three requests.
+
+		// 5.1 Create the tx
+		txid, err := createTransaction(client, time, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.1.2: %v", err))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
-		txid := strconv.Itoa(insert.Data.LID)
 
-		// 3.2 Create the DR distributions
-		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
-
-		// HACK! Hardwired hot-wallet account_id.  Fix this!
-		reqE, err := http.NewRequest("POST", url, strings.NewReader(fmt.Sprintf("apikey=%s&account_id=117&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, dramt, exp, txid)))
-		reqE.Close = true
-
-		reqE.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		respE, err := client.Do(reqE)
+		// 5.2 Create the DR distribution
+		_, err = createDistribution(client, account_id_hot, dramt, exp, txid, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.2.1: %v", err))
-		}
-		defer respE.Body.Close()
-
-		if respE.StatusCode != 200 {
-			return squeal(fmt.Sprintf("deposit.go 3.2.2: Expected status=200, Received=%d, Body=%v", respE.StatusCode, body_string(respE)))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
 
-		dec = json.NewDecoder(respE.Body)
-		err = dec.Decode(&insert)
+		// 5.3 Create the CR distribution
+		_, err = createDistribution(client, account_id_api, cramt, exp, txid, cfg)
 		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.2.3: %v", err))
+			log.Error(err)
+			fmt.Fprintf(w, err.Error())
+			return
 		}
-
-		// 3.3 Create the CR distributions
-		url = fmt.Sprintf("%s/distributions", cfg.Bookwerx.Server)
-		s := fmt.Sprintf("apikey=%s&account_id=%s&amount=%s&amount_exp=%s&transaction_id=%s", cfg.Bookwerx.APIKey, account_id, cramt, exp, txid)
-
-		reqF, err := http.NewRequest("POST", url, strings.NewReader(s))
-		reqF.Close = true
-
-		reqF.Header.Add("Content-Type", "application/x-www-form-urlencoded")
-		respF, err := client.Do(reqF)
-		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.3.1: %v", err))
-		}
-		defer respF.Body.Close()
-
-		if respF.StatusCode != 200 {
-			log.Println("deposit.go 3.3.1.5: Error posting %s", s)
-			return squeal(fmt.Sprintf("deposit.go 3.3.2: Expected status=200, Received=%d, Body=%v", respF.StatusCode, body_string(respF)))
-		}
-
-		dec = json.NewDecoder(respF.Body)
-		err = dec.Decode(&insert)
-		if err != nil {
-			return squeal(fmt.Sprintf("deposit.go 3.3.3: %v", err))
-		}
+		fmt.Printf(time, ok_access_key8, exp, currency_id)
 		return []byte("success")
 
 	} else {
+		log.Printf("%s %s %s %s", req.Method, req.URL, req.Header)
 		return []byte("use post")
 	}
 
