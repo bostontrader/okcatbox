@@ -14,8 +14,8 @@ script:
   - ./okcatbox -help
 
   # 1. Using the demo Bookwerx server, get credentials and setup some demo data.
-  - BSERVER="http://185.183.96.73:3003"
-  - APIKEY="$(curl -X POST $BSERVER/apikeys | jq -r .apikey)"
+  - export BSERVER="http://185.183.96.73:3003"
+  - export APIKEY="$(curl -X POST $BSERVER/apikeys | jq -r .apikey)"
   - echo "APIKEY=$APIKEY"
   - export CURRENCY_BTC="$(curl -d "apikey=$APIKEY&rarity=0&symbol=BTC&title=Bitcoin" $BSERVER/currencies | jq .LastInsertId)"
   - export CURRENCY_LTC="$(curl -d "apikey=$APIKEY&rarity=0&symbol=LTC&title=Litecoin" $BSERVER/currencies | jq .LastInsertId)"
