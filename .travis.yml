@@ -37,12 +37,7 @@ script:
   - curl -d "apikey=$APIKEY&account_id=$HOT_WALLET_LTC&category_id=$CAT_HOT" $BSERVER/acctcats
 
   # 2. Build a config file...
-  - echo "bookwerx:" > okcatbox.yaml
-  - echo "  apikey: $APIKEY" >> okcatbox.yaml
-  - echo "  server: $BSERVER" >> okcatbox.yaml
-  - echo "  funding: $CAT_FUNDING" >> okcatbox.yaml
-  - echo "  hot: $CAT_HOT" >> okcatbox.yaml
-  - echo "listenaddr: :8090" >> okcatbox.yaml
+  - ./build-okcatbox-config.sh
 
   # 3. Crank it up!
   - ./okcatbox -config=okcatbox.yaml &
