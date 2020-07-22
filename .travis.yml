@@ -49,6 +49,8 @@ script:
   - CATBOX_CREDENTIALS=okcatbox-read.json
   - curl -X POST $CATBOX_URL/catbox/credentials --output $CATBOX_CREDENTIALS
   - CB_APIKEY="$(cat okcatbox-read.json | jq -r .api_key)"
+  - echo "catbox credentials="
+  - cat $CATBOX_CREDENTIALS
 
   # 4.2 Simulate the deposit of coin into the funding account and check the wallet
   - curl -d "apikey=$CB_APIKEY&currency_symbol=BTC&quan=0.5&time=2020-07-21T" $CATBOX_URL/catbox/deposit
