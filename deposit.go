@@ -142,7 +142,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 		return []byte("success")
 
 	} else {
-		log.Printf("%s %s %s %s", req.Method, req.URL, req.Header)
+		log.Printf("%s %s %s", req.Method, req.URL, req.Header)
 		return []byte("use post")
 	}
 

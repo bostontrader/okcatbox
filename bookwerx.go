@@ -44,11 +44,6 @@ type CurrencyShort struct {
 	Title  string
 }
 
-type DFP struct {
-	amount int
-	exp    int
-}
-
 type LID struct {
 	LastInsertID int32
 }
@@ -193,29 +188,88 @@ func getCurrencyBySym(client *httpclient.Client, currency_symbol string, cfg Con
 	return currency_id, nil
 }
 
-func getCategoryBySymB(client *httpclient.Client, url string) (category_id int32) {
+/* func getCategoryBySym(client *http.Client, url string) (category_id int32) {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		fmt.Println("bookwerx.go getCategoryBySym 1: %v", err)
+		fmt.Println("wallet.go getCategoryBySym 1: %v", err)
 		return -1
+	}
+	//req.Close = true
+	resp, err := client.Do(req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		fmt.Println("wallet.go getCategoryBySym 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
+		return -1
+	}
+
+	n := Category{}
+	//n1, err := ioutil.ReadAll(resp.Body);
+	//fmt.Println(n1);
+	err = json.NewDecoder(resp.Body).Decode(&n)
+	if err != nil {
+		fmt.Println("wallet.go getCategoryBySym 3: Error with JSON decoding.")
+		return -1
+	}
+
+	return n.Id
+} */
+
+func getCategoryBySymB(client *httpclient.Client, url string) (category_id int32, err error) {
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		s := fmt.Sprintf("bookwerx.go getCategoryBySym 1: %v", err)
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 	resp, err := client.Do(req)
 	defer resp.Body.Close()
 
 	if resp.StatusCode != 200 {
-		fmt.Println("bookwerx.go getCategoryBySym 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
-		return -1
+		s := fmt.Sprintf("bookwerx.go getCategoryBySym 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 
 	n := Category{}
 	err = json.NewDecoder(resp.Body).Decode(&n)
 	if err != nil {
-		fmt.Println("bookwerx.go getCategoryBySym 3: Error with JSON decoding.")
-		return -1
+		s := fmt.Sprintf("bookwerx.go getCategoryBySym 3: Error with JSON decoding.")
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 
-	return n.Id
+	return n.Id, nil
+}
+
+func getCategoryDistSums(client *httpclient.Client, url string) (retVal Sums, err error) {
+
+	req, err := http.NewRequest("GET", url, nil)
+	if err != nil {
+		s := fmt.Sprintf("wallet.go getCategoryDistSums 1: %v", err)
+		log.Error(s)
+		return Sums{}, nil
+	}
+	resp, err := client.Do(req)
+	defer resp.Body.Close()
+
+	if resp.StatusCode != 200 {
+		s := fmt.Sprintf("wallet.go getCategoryDistSums 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
+		log.Error(s)
+		return Sums{}, nil
+	}
+
+	n := Sums{}
+	err = json.NewDecoder(resp.Body).Decode(&n)
+	if err != nil {
+		s := fmt.Sprintf("wallet.go getCategoryDistSums 3: Error with JSON decoding.")
+		log.Error(s)
+		return Sums{}, nil
+	}
+
+	return n, nil
 }
 
 func postAccount(client *httpclient.Client, currency_id int32, title string, cfg Config) (account_id int32, err error) {
@@ -284,7 +338,7 @@ func postAcctcat(client *httpclient.Client, account_id int32, category_id int32,
 	return n.LastInsertID, nil
 }
 
-func postCategory(client *httpclient.Client, url string, cb_apikey string, bw_apikey string) (retVal int32) {
+func postCategory(client *httpclient.Client, url string, cb_apikey string, bw_apikey string) (retVal int32, err error) {
 
 	url1 := fmt.Sprintf("%s/categories", url)
 	url2 := fmt.Sprintf("apikey=%s&symbol=%s&title=%s", cb_apikey, bw_apikey, bw_apikey)
@@ -295,23 +349,26 @@ func postCategory(client *httpclient.Client, url string, cb_apikey string, bw_ap
 	resp, err := client.Post(url1, bytes.NewBuffer([]byte(url2)), h)
 	defer resp.Body.Close()
 	if err != nil {
-		fmt.Println("credentials.go makeCategory 1: %v", err)
-		return -1
+		s := fmt.Sprintf("credentials.go makeCategory 1: %v", err)
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 
 	if resp.StatusCode != 200 {
-		fmt.Println("credentials.go makeCategory 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
-		return -1
+		s := fmt.Sprintf("credentials.go makeCategory 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 
 	n := LID{}
 	err = json.NewDecoder(resp.Body).Decode(&n)
 	if err != nil {
-		fmt.Println("credential.go makeCategory 3: Error with JSON decoding.")
-		return -1
+		s := fmt.Sprintf("credential.go makeCategory 3: Error with JSON decoding.")
+		log.Error(s)
+		return -1, errors.New(s)
 	}
 
-	return n.LastInsertID
+	return n.LastInsertID, nil
 }
 
 func searchA(accounts []AccountJoined, ok_access_key8 string, currency_symbol string) (account_id int32, found bool) {
@@ -345,23 +402,6 @@ func searchA(accounts []AccountJoined, ok_access_key8 string, currency_symbol st
 func getFundingAccountID(client *httpclient.Client, accounts []AccountJoined, ok_access_key8 string, currency_id int32, currency_symbol string, cfg Config) (account_id int32, err error) {
 
 	// 1. Can I find an account tagged funding _and_ apikey using the correct currency?
-	//cat_funding := false
-	//cat_api := false
-	//currency := false
-	//for _, account := range accounts {
-	//currency = false
-	//if strings.EqualFold(account.CurrencyShort.Symbol, currency_symbol) {
-	//currency = true
-	//for _, category := range account.Categories {
-	//if strings.EqualFold(category.CategorySymbol, "F") { // case insensitive compare
-	//cat_funding = true
-	//} else if strings.EqualFold(category.CategorySymbol, ok_access_key8) {
-	//cat_api = true
-	//}
-	//}
-	//}
-
-	//}
 	account_id, found := searchA(accounts, ok_access_key8, currency_symbol)
 
 	// 2. If the account doesn't already exist, then create it and tag it with the customer's category and funding
@@ -369,27 +409,27 @@ func getFundingAccountID(client *httpclient.Client, accounts []AccountJoined, ok
 
 		// 2.1 Find the category id for this apikey
 		url := fmt.Sprintf("%s/category/bysym/%s?apikey=%s", cfg.Bookwerx.Server, ok_access_key8, cfg.Bookwerx.APIKey)
-		category_id_api := getCategoryBySymB(client, url)
+		category_id_api, err := getCategoryBySymB(client, url)
+		if err != nil {
+			log.Error(err)
+			return -1, err
+		}
 
-		// 2.2 Find the category id for F
-		//url := fmt.Sprintf("%s/category/bysym/%s?apikey=%s", cfg.Bookwerx.Server, ok_access_key8, cfg.Bookwerx.APIKey)
-		//category_id_api := getCategoryBySymB(client, url);
-
-		// 2.3 Make the new account
+		// 2.2 Make the new account
 		account_id, err = postAccount(client, currency_id, ok_access_key8, cfg)
 		if err != nil {
 			log.Error(err)
 			return -1, err
 		}
 
-		// 2.4 Tag with the api key
+		// 2.3 Tag with the api key
 		_, err = postAcctcat(client, account_id, category_id_api, cfg)
 		if err != nil {
 			log.Error(err)
 			return -1, err
 		}
 
-		// 2.5 Tag with funding
+		// 2.4 Tag with funding
 		_, err = postAcctcat(client, account_id, cfg.Bookwerx.Funding, cfg)
 		if err != nil {
 			log.Error(err)
@@ -423,46 +463,10 @@ func getAccounts(client *httpclient.Client, cfg Config) (accounts []AccountJoine
 	dec := json.NewDecoder(resp.Body)
 	err = dec.Decode(&accountJoineds)
 	if err != nil {
-		s := fmt.Sprintf("bookwerx.go getHotWalletAccountID 3: ", err)
+		s := fmt.Sprintf("bookwerx.go getHotWalletAccountID 3: %v", err)
 		log.Error(s)
 		return nil, errors.New(s)
 	}
-
-	// Can I find an account named #{apikey} using the same currency, that is tagged with the customer funding category?
-	//var account_id int32
-	//account_exists := false
-	//for _, accountJoined := range accountJoineds {
-	//if accountJoined.Title == ok_access_key8 {
-	//if strings.EqualFold(accountJoined.CurrencyShort.Symbol, currency_symbol) { // case insensitive compare
-	// is this account tagged 'funding'  Figure this out later.
-	//account_id = strconv.Itoa(accountJoined.AccountID)
-	//account_exists = true
-	//}
-	//}
-	//}
-	//fmt.Println(account_exists)
-
-	// If the account doesn't already exist, then create it and tag it with the customer's category and funding
-	//if !account_exists {
-	//account_id, err = postAccount(client, currency_id, cfg)
-	//if err != nil {
-	//log.Error(err)
-	//return -1, err
-	//}
-
-	//_, err = postAcctcat(client, account_id, category_id, cfg)
-	//if err != nil {
-	//log.Error(err)
-	//return -1, err
-	//}
-
-	//_, err = postAcctcat(client, account_id, cfg.Bookwerx.HotWallet, cfg)
-	//if err != nil {
-	//log.Error(err)
-	//return -1, err
-	//}
-
-	//}
 
 	return accountJoineds, nil
 }
@@ -470,8 +474,6 @@ func getAccounts(client *httpclient.Client, cfg Config) (accounts []AccountJoine
 func getHotWalletAccountID(client *httpclient.Client, accounts []AccountJoined, currency_symbol string, cfg Config) (account_id int32, err error) {
 
 	// Can I find an account named #{apikey} using the same currency, that is tagged with the customer funding category?
-	//var account_id int32
-	//account_exists := false
 	for _, account := range accounts {
 		//if accountJoined.Title == ok_access_key8 {
 		if strings.EqualFold(account.CurrencyShort.Symbol, currency_symbol) { // case insensitive compare

@@ -6,7 +6,7 @@ import (
 	utils "github.com/bostontrader/okcommon"
 	"github.com/gojektech/heimdall/httpclient"
 	uuid "github.com/nu7hatch/gouuid"
-	"log"
+	log "github.com/sirupsen/logrus"
 	"net/http"
 	"time"
 )
@@ -44,11 +44,15 @@ func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Con
 
 	// 3.2 Make a new category for this user's apikey.
 	// It's tempting to save the newly created category_id in the in-memory db now because we need it later.  However, doing so would require a fair bit of re-engineering and we can always query bookwerx to get this category_id when we need it.  So therefore let's just take the ez path for now.
-	_ = postCategory(
+	_, err = postCategory(
 		client,
 		cfg.Bookwerx.Server,
 		cfg.Bookwerx.APIKey, // The apikey that cb uses with bw
 		credentials.Key[:8]) // The apikey that the user uses with cb
+	if err != nil {
+		log.Fatalf("error: %v", err)
+		return
+	}
 
 	// 4.
 	retVal, _ := json.Marshal(credentials)
