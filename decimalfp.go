@@ -6,8 +6,8 @@ import (
 )
 
 type DFP struct {
-	amount int64
-	exp    int8
+	Amount int64
+	Exp    int8
 }
 
 // Not really a decimal floating point function, just a convenience.
@@ -28,7 +28,7 @@ type DFPFmt struct {
 // Given a DFP and an int8 p, round the DFP to the 10^p position and produce a formatted string with a decimal point and suitable leading and trailing zeros as necessary.  Tamper with this at your own peril.  Feel free to figure this out, refactor, or simplify.
 func dfp_fmt(dfp DFP, p int8) DFPFmt {
 
-	negative := dfp.amount < 0
+	negative := dfp.Amount < 0
 
 	sign := ""
 	if negative {
@@ -39,9 +39,9 @@ func dfp_fmt(dfp DFP, p int8) DFPFmt {
 	//  If dfp_norm != norm dfp then there are digits obscured by rounding.
 	dfp_norm := DFPNorm(dfp_round(p, dfp))
 
-	samt := fmt.Sprintf("%d", dfp_norm.amount)
+	samt := fmt.Sprintf("%d", dfp_norm.Amount)
 	if negative {
-		samt = fmt.Sprintf("%d", dfp_norm.amount)[1:]
+		samt = fmt.Sprintf("%d", dfp_norm.Amount)[1:]
 	}
 
 	slen := len(samt)
@@ -62,22 +62,22 @@ func insertDp(pos int, samt string) (retVal string) {
 }
 
 func s2(dfp_norm DFP, slen int8, p int8, samt string) (retVal string) {
-	if dfp_norm.exp < 0 {
+	if dfp_norm.Exp < 0 {
 		// move dp to the left
-		if abs(dfp_norm.exp) < slen {
+		if abs(dfp_norm.Exp) < slen {
 			// split samt and insert dp
-			return insertDp(int(slen-abs(dfp_norm.exp)),
-				samt+strings.Repeat("0", int(abs(p)+dfp_norm.exp)))
-		} else if abs(dfp_norm.exp) == slen {
+			return insertDp(int(slen-abs(dfp_norm.Exp)),
+				samt+strings.Repeat("0", int(abs(p)+dfp_norm.Exp)))
+		} else if abs(dfp_norm.Exp) == slen {
 			return "0." + samt + strings.Repeat("0", int(abs(p)-slen))
 		} else {
-			//-- abs(dfp_norm.exp) > slen
-			n1 := abs(dfp_norm.exp) - slen
+			//-- abs(dfp_norm.Exp) > slen
+			n1 := abs(dfp_norm.Exp) - slen
 			n2 := abs(p) - slen - n1
 			return "0." + strings.Repeat("0", int(n1)) + samt + strings.Repeat("0", int(n2))
 		}
 
-	} else if dfp_norm.exp == 0 {
+	} else if dfp_norm.Exp == 0 {
 
 		//-- don't move the dp
 		if p > 0 {
@@ -86,11 +86,11 @@ func s2(dfp_norm DFP, slen int8, p int8, samt string) (retVal string) {
 			return samt + "." + strings.Repeat("0", int(-p))
 		}
 	} else {
-		//-- dfp_norm.exp > 0, move dp to the right
+		//-- dfp_norm.Exp > 0, move dp to the right
 		if p > 0 {
-			return samt + strings.Repeat("0", int(dfp_norm.exp))
+			return samt + strings.Repeat("0", int(dfp_norm.Exp))
 		} else {
-			return samt + strings.Repeat("0", int(dfp_norm.exp)) + "." + strings.Repeat("0", int(-p))
+			return samt + strings.Repeat("0", int(dfp_norm.Exp)) + "." + strings.Repeat("0", int(-p))
 		}
 	}
 }
@@ -105,10 +105,10 @@ func s3(s2 string) string {
 
 func DFPNorm(d DFP) (retVal DFP) {
 
-	if d.amount == 0 {
+	if d.Amount == 0 {
 		return DFP{0, 0}
-	} else if d.amount%10 == 0 {
-		return DFPNorm(DFP{d.amount / 10, d.exp + 1})
+	} else if d.Amount%10 == 0 {
+		return DFPNorm(DFP{d.Amount / 10, d.Exp + 1})
 	} else {
 		//-- already in normal form
 		return d
@@ -119,16 +119,16 @@ func DFPNorm(d DFP) (retVal DFP) {
 
 func dfp_round(p int8, d DFP) (retVal DFP) {
 
-	if p <= d.exp {
+	if p <= d.Exp {
 		//-- already rounded enough
 		return d
 	} else {
-		last_digit := d.amount % 10
-		new_amount := d.amount / 10
+		last_digit := d.Amount % 10
+		new_Amount := d.Amount / 10
 		if last_digit >= 5 {
-			new_amount = d.amount/10 + 1
+			new_Amount = d.Amount/10 + 1
 		}
-		new_dfp := DFP{new_amount, d.exp + 1}
+		new_dfp := DFP{new_Amount, d.Exp + 1}
 		return dfp_round(p, new_dfp)
 	}
 }

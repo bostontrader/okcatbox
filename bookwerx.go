@@ -14,6 +14,12 @@ import (
 	"time"
 )
 
+type AccountCurrency struct {
+	AccountID int32
+	Title     string
+	Currency  CurrencySymbol
+}
+
 // We only need a subset of all the info returned.
 type AccountJoined struct {
 	AccountID     int32 `json:"id"`
@@ -24,6 +30,11 @@ type AccountJoined struct {
 
 type Acctcat2 struct {
 	CategorySymbol string `json:"category_symbol"`
+}
+
+type BalanceResultDecorated struct {
+	Account AccountCurrency
+	Sum     DFP
 }
 
 type Category struct {
@@ -44,8 +55,17 @@ type CurrencyShort struct {
 	Title  string
 }
 
+type CurrencySymbol struct {
+	CurrencyID int32
+	Symbol     string
+}
+
 type LID struct {
 	LastInsertID int32
+}
+
+type Sums struct {
+	Sums []BalanceResultDecorated
 }
 
 // Given a response object, read the body and return it as a string.  Deal with the error message if necessary.
