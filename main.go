@@ -171,23 +171,6 @@ func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb s
 	return
 }
 
-func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return
-
-	} else {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
-
-		depositAddresses := make([]utils.DepositAddress, 1)
-		depositAddresses[0] = utils.DepositAddress{Address: "btc address", CurrencyID: "BTC", To: 6}
-		retVal, _ = json.Marshal(depositAddresses)
-	}
-
-	return
-}
-
 func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
 
 	retVal, err := checkSigHeaders(w, req)
@@ -254,11 +237,6 @@ func RandStringBytesMaskImprSrc(n int) string {
 // 2. Request handlers
 func currencies(w http.ResponseWriter, req *http.Request) {
 	retVal := generateCurrenciesResponse(w, req, "GET", "/api/account/v3/currencies")
-	fmt.Fprintf(w, string(retVal))
-}
-
-func depositAddress(w http.ResponseWriter, req *http.Request) {
-	retVal := generateDepositAddressResponse(w, req, "GET", "/api/account/v3/deposit/address")
 	fmt.Fprintf(w, string(retVal))
 }
 
@@ -379,10 +357,10 @@ func main() {
 	// 5. Setup request handlers
 
 	// Unique to the Catbox
-	//http.HandleFunc("/catbox/credentials", catbox_credentialsHandler)
 	http.HandleFunc("/catbox/credentials", func(w http.ResponseWriter, req *http.Request) {
 		catbox_credentialsHandler(w, req, cfg)
 	})
+
 	http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
 		catbox_depositHandler(w, req, cfg)
 	})
@@ -392,7 +370,10 @@ func main() {
 		catbox_walletHandler(w, req, cfg)
 	})
 
-	http.HandleFunc("/api/account/v3/deposit/address", depositAddress)
+	http.HandleFunc("/api/account/v3/deposit/address", func(w http.ResponseWriter, req *http.Request) {
+		fundingDepositAddressHandler(w, req, cfg)
+	})
+
 	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
 	http.HandleFunc("/api/account/v3/currencies", currencies)
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
