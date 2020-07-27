@@ -29,7 +29,7 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, cf
 	// This pattern of error handling will return an expected server response.  Don't change this.
 	currencies, ok := req.URL.Query()["currency"]
 	if !ok {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30023("currency cannot be blank"))
 		return retVal
@@ -44,16 +44,16 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, cf
 	currencySymbol := currencies[0] // we know there must be at least one currency.  Only care about the first one.
 	_, err := getCurrencyBySym(client, currencySymbol, cfg)
 	if err != nil {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 		w.WriteHeader(400)
 		retVal, _ = json.Marshal(utils.Err30031(currencySymbol)) // invalid param
 		return retVal
 	}
 
-	// The request is fully validated.  Now send back some dummy data of the correct shape.
+	// The request is fully validated.
 	setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
-	depositAddresses := make([]utils.DepositAddress, 1)
+	depositAddresses := make([]utils.DepositAddress, 0)
 	depositAddresses = append(depositAddresses, utils.DepositAddress{Address: "deposit address", CurrencyID: currencySymbol, To: 6})
 
 	retVal, err = json.Marshal(depositAddresses)

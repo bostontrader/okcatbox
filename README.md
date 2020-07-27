@@ -13,7 +13,7 @@ OKEx provides a testnet of its own, but according to its docs, said testnet is l
 
 ### The Easy Way
 
-The easiest way to get started is to use our online demo located at http://185.183.96.73:8090.  Using any tool of your choice, create the HTTP requests that you would ordinarily send to the real OKEx API but instead send them to the demo OKCatbox server.  One particularly helpful tool for this task is [OKProbe](http://github.com/bostontrader/okprobe). In fact, we will assume the use of OKProbe in these instructions, so please install this first.
+The easiest way to get started is to use our publicly available demo server located at http://185.183.96.73:8090.  Using any tool of your choice, create the HTTP requests that you would ordinarily send to the real OKEx API but instead send them to the demo OKCatbox server.  One particularly helpful tool for this task is [OKProbe](http://github.com/bostontrader/okprobe). In fact, we will assume the use of OKProbe in these instructions, so please install this first.
 
 As with the real OKEx server, you'll need credentials for most of the API calls.  You can get them from the OKCatbox server:
 
@@ -23,40 +23,44 @@ export CATBOX_CREDENTIALS=okcatbox.json
 curl -X POST $CATBOX_URL/catbox/credentials --output $CATBOX_CREDENTIALS
 ```
 
+Next, build and submit HTTP requests to the API.  As mentioned earlier, okprobe is a good tool for this.  Here's some example usage:
+
+```
+okprobe -url $CATBOX_URL -keyfile $CATBOX_CREDENTIALS -endpnt currencies
+okprobe -url $CATBOX_URL -keyfile $CATBOX_CREDENTIALS -endpnt wallet
+```
+
 WARNING! [Danger!](https://www.youtube.com/watch?v=1IPPn9t6dyE).  When using the OKCatbox, especially when using our demo server, DO NOT use your real OKEx credentials!
 
 ### The Hard Way
 
 You can always install the OKCatbox server yourself.
 
-As prerequisites, you'll need git and golang installed on your system as well as access to a [Bookwerx Core](https://github.com/bostontrader/bookwerx-core-rust) server.  Assuming you have these things:
+As prerequisites, you'll need git and golang installed on your system as well as access to a [Bookwerx Core](https://github.com/bostontrader/bookwerx-core-rust) server.   We have a [publicly available demonstration version](http://185.183.96.73:3003) for your convenience.   Assuming you have these things:
 
 ```
-git clone https://github.com/bostontrader/okcatbox
-cd okcatbox
-go build
-./okcatbox -help
+go get github.com/bostontrader/okcatbox
+go install github.com/bostontrader/okcatbox
+okcatbox -help
 ```
 
-Next, you'll need to configure the OKCatbox to use bookwerx-core.
-
-The first step in doing that is to find a suitable bookwer-core server.  We have a [publicly available demonstration version](http://185.183.96.73:3003) for your convenience.  This is the URL for submitting RESTful commands.  We also provide a [a convenient UI](http://185.183.96.73:3005/) that works with this server.
+In order for the OKCatbox to do its thing, it necessarily must have some bookkeeping ability.  It uses a bookwerx-core server.  So your first step is to find or install a suitable server.  As mentioned earlier have a [publicly available demonstration version](http://185.183.96.73:3003) for your convenience.  This is the URL that the OKCatbox will use to communicate with the bookwerx-core server via RESTful requests.  We also provide a [a convenient UI](http://185.183.96.73:3005/) that works with this server.
 
 We're going to use the URL of the bookwerx-core server in subsequent requests, so let's save it in the env:
 ```
 export BSERVER=http://185.183.96.73:3003
 ```
 
-Next, we need to obtain an API key for the bookwerx-core server.  We can do this using the aforementioned UI, but the command-line way is:
+Next, we need to obtain an API key for the bookwerx-core server.  We can do this using the aforementioned UI, or we could do it the command-line way:
 
 ```
-curl -X POST $BSERVER/apikeys
+curl -X POST $BSERVER/apikeys   # Wait!  Don't do this!
 ```
 
 The response looks intuitively obvious to our human eyeballs.  However, we're going to need to use this value repeatedly in the future, so it would be really useful to parse this response, pick out just the value of the apikey, and save just that value in the env.  We can easily parse this using [jq](https://stedolan.github.io/jq/). Assuming jq is properly installed and combining all this new-found learning into one command yields:
 
 ```
-export APIKEY="$(curl -X POST $BSERVER/apikeys | jq -r .apikey)"
+export APIKEY="$(curl -X POST $BSERVER/apikeys | jq -r .apikey)"   # Do this instead
 ```
 
 Next, we have to define some currencies.  Any currency that the OKCatbox can deal with will have to be defined in the bookwerx-core server. Let's start this party by defining Bitcoin and Litecoin.  As usual, you can do this with the UI or use the command line:
@@ -69,7 +73,6 @@ export CURRENCY_LTC="$(curl -d "apikey=$APIKEY&rarity=0&symbol=LTC&title=Litecoi
 Upon close inspection you can see a parameter named "rarity".  It's harmless but not relevant for this tutorial so just ignore it.
 
 Another wrinkle is that we have double quotes inside double quotes.  Oddly enough this seems to work for us, but this looks like something that might go wrong for somebody else, so be wary of this.
-
 
 Now we have to define a handful of accounts.  We will need a hot wallet for each of the above currencies.
 
@@ -95,11 +98,11 @@ Next, we'll need to define some useful categories that we can use to tag the acc
 
 There are many cases where we need to find accounts that are somehow related.  For example, a Balance Sheet will need to identify all Assets.
 
-The Funding category is used to tag any user account related to newly deposited funds in the funding account.
+The OKCatbox uses the Funding category to tag any user account related to newly deposited funds in the funding account.
 
-The Hot wallet category is used to tag an accounts that are hot wallets.
+The OKCatox uses the Hot wallet category to tag accounts that are hot wallets.
 
-Even though we don't presently have accounts that are members of all these categories, we'll need them later.  Let's just get this over with now.
+Even though we don't presently have accounts that are members of all these categories, we'll use them all soon enough so let's just get this over with now.
 
 ```
 export CAT_ASSETS="$(curl -d "apikey=$APIKEY&symbol=A&title=Assets" $BSERVER/categories | jq .LastInsertId)"
@@ -141,7 +144,6 @@ echo "  server: $BSERVER" >> okcatbox.yaml
 echo "  funding: $CAT_FUNDING" >> okcatbox.yaml
 echo "  hot: $CAT_HOT" >> okcatbox.yaml
 echo "listenaddr: :8090" >> okcatbox.yaml
-
 ````
 
 Note that the listenaddr can be set to any usable port.
@@ -149,7 +151,9 @@ Note that the listenaddr can be set to any usable port.
 
 And now... [Drumroll please...](https://www.youtube.com/watch?v=-R81ugVBLlw&t=9)
 
-./okcatbox -config=okcatbox.yaml
+```
+okcatbox -config=okcatbox.yaml
+```
 
 The OKCatbox server is now running and listening on whatever port you specified earlier.
 
