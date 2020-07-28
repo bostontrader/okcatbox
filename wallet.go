@@ -46,8 +46,8 @@ func generateWalletResponse(w http.ResponseWriter, req *http.Request, verb strin
 			return []byte(fmt.Sprintf("%v", err))
 		}
 
-		// 2. Get the account balances for all accounts tagged as funding and this user's okcatbox apikey.
-		categories := fmt.Sprintf("%d,%d", category_id, cfg.Bookwerx.Funding)
+		// 2. Get the account balances for all accounts tagged as funding_cat and this user's okcatbox apikey.
+		categories := fmt.Sprintf("%d,%d", category_id, cfg.Bookwerx.FundingCat)
 		url = fmt.Sprintf("%s/category_dist_sums?apikey=%s&category_id=%s&decorate=true", cfg.Bookwerx.Server, cfg.Bookwerx.APIKey, categories)
 		sums, err := getCategoryDistSums(client, url)
 		if err != nil {

@@ -19,9 +19,14 @@ import (
 
 // The OKCatbox will use a Bookwerx server for its internal operation.
 type Bookwerx struct {
-	APIKey  string
-	Server  string
-	Funding int32
+	APIKey string
+	Server string
+
+	// Any customer account that is a funding account shall be tagged with this category
+	FundingCat int32 `yaml:"funding_cat"`
+
+	// Any hot wallet shall be tagged with this category.
+	HotWalletCat int32 `yaml:"hot_wallet_cat"`
 }
 
 // When the OKCatbox executes it needs some configuration.

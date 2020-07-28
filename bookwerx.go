@@ -450,7 +450,7 @@ func getFundingAccountID(client *httpclient.Client, accounts []AccountJoined, ok
 		}
 
 		// 2.4 Tag with funding
-		_, err = postAcctcat(client, account_id, cfg.Bookwerx.Funding, cfg)
+		_, err = postAcctcat(client, account_id, cfg.Bookwerx.FundingCat, cfg)
 		if err != nil {
 			log.Error(err)
 			return -1, err
