@@ -44,7 +44,7 @@ go install github.com/bostontrader/okcatbox
 okcatbox -help
 ```
 
-In order for the OKCatbox to do its thing, it necessarily must have some bookkeeping ability.  It uses a bookwerx-core server.  So your first step is to find or install a suitable server.  As mentioned earlier have a [publicly available demonstration version](http://185.183.96.73:3003) for your convenience.  This is the URL that the OKCatbox will use to communicate with the bookwerx-core server via RESTful requests.  We also provide a [a convenient UI](http://185.183.96.73:3005/) that works with this server.
+In order for the OKCatbox to do its thing, it necessarily must have some bookkeeping ability.  It uses a bookwerx-core server.  So your first order of business is to find or install a suitable server.  As mentioned earlier we have a [publicly available demonstration version](http://185.183.96.73:3003) for your convenience.  This is the URL that the OKCatbox will use to communicate with the bookwerx-core server via RESTful requests.  We also provide a [a convenient UI](http://185.183.96.73:3005/) that works with this server.
 
 We're going to use the URL of the bookwerx-core server in subsequent requests, so let's save it in the env:
 ```

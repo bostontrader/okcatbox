@@ -31,7 +31,11 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 
 		// 1.1 OKCatbox apikey.
 		apikey := req.FormValue("apikey")
-		ok_access_key8 := apikey[:8]
+		ok_access_key8 := apikey
+		if len(apikey) >= 8 {
+			ok_access_key8 = apikey[:8]
+		}
+
 		// Is this key defined with this OKCatbox server?
 		txn := db.Txn(false)
 		defer txn.Abort()
@@ -114,7 +118,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 			return
 		}
 
-		// 5. Now create the transaction and the two distributions using three requests.
+		// 5. Now create the transaction on the user's books and the two distributions using three requests.
 
 		// 5.1 Create the tx
 		txid, err := createTransaction(client, time, cfg)
