@@ -10,11 +10,12 @@ import (
 	"time"
 )
 
-// /catbox/wallet
-func catbox_walletHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
-	retVal := generateWalletResponse(w, req, "GET", "/api/account/v3/wallet", cfg)
+// /api/account/v3/wallet
+func account_walletHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
+	retVal := generateWalletResponse(w, req, cfg)
 	fmt.Fprintf(w, string(retVal))
 }
+
 func getOKAccessKey(headers map[string][]string) string {
 	if value, ok := headers["Ok-Access-Key"]; ok {
 		return value[0][:8]
@@ -22,7 +23,7 @@ func getOKAccessKey(headers map[string][]string) string {
 	return ""
 }
 
-func generateWalletResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string, cfg Config) (retVal []byte) {
+func generateWalletResponse(w http.ResponseWriter, req *http.Request, cfg Config) (retVal []byte) {
 
 	retVal, err := checkSigHeaders(w, req)
 	if err {
@@ -40,7 +41,7 @@ func generateWalletResponse(w http.ResponseWriter, req *http.Request, verb strin
 
 		// 1. Lookup the category_id for this user's okcatbox apikey
 		url := fmt.Sprintf("%s/category/bysym/%s?apikey=%s", cfg.Bookwerx.Server, ok_access_key8, cfg.Bookwerx.APIKey)
-		category_id, err := getCategoryBySymB(client, url)
+		category_id, err := getCategoryBySym(client, url)
 		if err != nil {
 			log.Error(err)
 			return []byte(fmt.Sprintf("%v", err))

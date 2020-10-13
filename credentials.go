@@ -14,7 +14,7 @@ import (
 // /catbox/credentials
 func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
 
-	log.Printf("%s %s %s %s", req.Method, req.URL, req.Header)
+	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
 
 	// 1. Generate the credentials
 	u4, err := uuid.NewV4()

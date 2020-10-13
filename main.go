@@ -12,21 +12,35 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 )
 
 // 1. Random necessities
+
+// A transfer requires a source and a destination (from,to).  Each endpoint has an available and hold amount.
+// Here we store the bookwerx category_ids for a particular transfer endpoint.
+type AH struct {
+	Available int32
+	Hold      int32
+}
 
 // The OKCatbox will use a Bookwerx server for its internal operation.
 type Bookwerx struct {
 	APIKey string
 	Server string
 
-	// Any customer account that is a funding account shall be tagged with this category
-	FundingCat int32 `yaml:"funding_cat"`
+	// Customer accounts shall be tagged with these categories where applicable.
+	// These are deprecated.  Use TransferCats instead.
+	FundingCat       int32 `yaml:"funding_cat"`
+	SpotAvailableCat int32 `yaml:"spot_available_cat"`
+	SpotHoldCat      int32 `yaml:"spot_hold_cat"`
 
 	// Any hot wallet shall be tagged with this category.
 	HotWalletCat int32 `yaml:"hot_wallet_cat"`
+
+	// The OKEx API specifies transfer endpoints using strings.  ie. "1" = spot, "6" = funding, etc.
+	TransferCats map[string]AH `yaml:"transfer_cats"`
 }
 
 // When the OKCatbox executes it needs some configuration.
@@ -176,24 +190,6 @@ func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb s
 	return
 }
 
-func generateDepositHistoryResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return
-
-	} else {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
-
-		depositHistories := make([]utils.DepositHistory, 1)
-		depositHistories[0] = utils.DepositHistory{Amount: "amount", TXID: "txid", CurrencyID: "currency", From: "from", To: "to", DepositID: 666, Timestamp: "timestamp", Status: "status"}
-		retVal, _ = json.Marshal(depositHistories)
-
-	}
-
-	return
-}
-
 func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
 
 	retVal, err := checkSigHeaders(w, req)
@@ -245,22 +241,11 @@ func currencies(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintf(w, string(retVal))
 }
 
-func depositHistory(w http.ResponseWriter, req *http.Request) {
-	retVal := generateDepositHistoryResponse(w, req, "GET", "/api/account/v3/deposit/history")
-	fmt.Fprintf(w, string(retVal))
-}
-
 // /api/account/v3/withdrawal/fee
 func withdrawalFee(w http.ResponseWriter, req *http.Request) {
 	retVal := generateWithdrawalFeeResponse(w, req, "GET", "/api/account/v3/withdrawal/fee")
 	fmt.Fprintf(w, string(retVal))
 }
-
-// Log this string and return it as a []byte
-//func squeal(s string) (_ []byte) {
-//log.Println(s)
-//return []byte(s)
-//}
 
 func main() {
 
@@ -333,20 +318,8 @@ func main() {
 		panic(err)
 	}
 
-	// 3. Hardwire a first set of credentials
-	//txn := db.Txn(true)
-	//n1 := &utils.Credentials{"47477ba4-74ad-4649-4c71-36c587a82c7d", "4790CA744289696413598ECBAB430B79", "valid passphrase"}
-	//if err := txn.Insert("credentials", n1); err != nil {
-	//panic(err)
-	//}
-	//txn.Commit()
-
-	// 4. Hardwire a first set of withdrawal fees
+	// 3. Hardwire a first set of withdrawal fees
 	txn := db.Txn(true)
-	//n2 := []*utils.WithdrawalFee {
-	//&utils.WithdrawalFee{"BTC", "0.00040000", "0.01000000"},
-	//&utils.WithdrawalFee{"LTC", "0.00100000", "0.00200000"},
-	//}
 	n2 := &utils.WithdrawalFee{"BTC", "0.00040000", "0.01000000"}
 	n3 := &utils.WithdrawalFee{"LTC", "0.00100000", "0.00200000"}
 
@@ -359,9 +332,9 @@ func main() {
 
 	txn.Commit()
 
-	// 5. Setup request handlers
+	// 4. Setup request handlers
 
-	// Unique to the Catbox
+	// 4.1 Unique to the Catbox
 	http.HandleFunc("/catbox/credentials", func(w http.ResponseWriter, req *http.Request) {
 		catbox_credentialsHandler(w, req, cfg)
 	})
@@ -370,22 +343,44 @@ func main() {
 		catbox_depositHandler(w, req, cfg)
 	})
 
-	// Funding
-	http.HandleFunc("/api/account/v3/wallet", func(w http.ResponseWriter, req *http.Request) {
-		catbox_walletHandler(w, req, cfg)
-	})
+	// 4.2 Funding
+	http.HandleFunc("/api/account/v3/currencies", currencies)
 
 	http.HandleFunc("/api/account/v3/deposit/address", func(w http.ResponseWriter, req *http.Request) {
 		fundingDepositAddressHandler(w, req, cfg)
 	})
 
-	http.HandleFunc("/api/account/v3/deposit/history", depositHistory)
-	http.HandleFunc("/api/account/v3/currencies", currencies)
+	// Get deposits for all currencies
+	http.HandleFunc("/api/account/v3/deposit/history", func(w http.ResponseWriter, req *http.Request) {
+		account_depositHistoryHandler(w, req, cfg, "")
+	})
+
+	// Get deposits for only the currency specified in the URL .../history/<currency>
+	http.HandleFunc("/api/account/v3/deposit/history/", func(w http.ResponseWriter, req *http.Request) {
+		n := strings.Split(req.URL.Path, "/")
+		currency := n[len(n)-1]
+		account_depositHistoryHandler(w, req, cfg, currency)
+	})
+
+	http.HandleFunc("/api/account/v3/transfer", func(w http.ResponseWriter, req *http.Request) {
+		account_transferHandler(w, req, cfg)
+	})
+
+	http.HandleFunc("/api/account/v3/wallet", func(w http.ResponseWriter, req *http.Request) {
+		account_walletHandler(w, req, cfg)
+	})
+
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
 
-	http.HandleFunc("/api/spot/v3/accounts", accountsHandler)
+	// 4.3 Spot
+	http.HandleFunc("/api/spot/v3/accounts", func(w http.ResponseWriter, req *http.Request) {
+		spot_accountsHandler(w, req, cfg)
+	})
 
-	// 6. Let er rip!
+	// 5. Let er rip!
 	log.Printf("The Catbox is listening to %s\n", cfg.ListenAddr)
-	http.ListenAndServe(cfg.ListenAddr, nil)
+	err = http.ListenAndServe(cfg.ListenAddr, nil)
+	if err != nil {
+		log.Fatalf("error: %v", err)
+	}
 }
