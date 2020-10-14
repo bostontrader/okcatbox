@@ -620,24 +620,24 @@ func postAcctcat(client *httpclient.Client, account_id int32, category_id int32,
 	return n.LastInsertID, nil
 }
 
-func postCategory(client *httpclient.Client, url string, cb_apikey string, bw_apikey string) (retVal int32, err error) {
+func postCategory(client *httpclient.Client, urlBase string, bw_apikey string, user_id string) (retVal int32, err error) {
 
-	url1 := fmt.Sprintf("%s/categories", url)
-	url2 := fmt.Sprintf("apikey=%s&symbol=%s&title=%s", cb_apikey, bw_apikey, bw_apikey)
+	url := fmt.Sprintf("%s/categories", urlBase)
+	postBody := fmt.Sprintf("apikey=%s&symbol=%s&title=%s", bw_apikey, user_id, user_id)
 
 	h := make(map[string][]string)
 	h["Content-Type"] = []string{"application/x-www-form-urlencoded"}
 
-	resp, err := client.Post(url1, bytes.NewBuffer([]byte(url2)), h)
+	resp, err := client.Post(url, bytes.NewBuffer([]byte(postBody)), h)
 	defer resp.Body.Close()
 	if err != nil {
-		s := fmt.Sprintf("bookwerx-api.go:makeCategory 1: %v", err)
+		s := fmt.Sprintf("bookwerx-api.go:postCategory: ", err)
 		log.Error(s)
 		return -1, errors.New(s)
 	}
 
 	if resp.StatusCode != 200 {
-		s := fmt.Sprintf("bookwerx-api.go:makeCategory 2: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
+		s := fmt.Sprintf("bookwerx-api.go:postCategory: Expected status=200, Received=%d, Body=%v", resp.StatusCode, body_string(resp))
 		log.Error(s)
 		return -1, errors.New(s)
 	}
@@ -645,7 +645,7 @@ func postCategory(client *httpclient.Client, url string, cb_apikey string, bw_ap
 	n := LID{}
 	err = json.NewDecoder(resp.Body).Decode(&n)
 	if err != nil {
-		s := fmt.Sprintf("bookwerx-api.go:makeCategory 3: Error with JSON decoding.")
+		s := fmt.Sprintf("bookwerx-api.go:postCategory: Error with JSON decoding.")
 		log.Error(s)
 		return -1, errors.New(s)
 	}
