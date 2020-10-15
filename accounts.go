@@ -24,7 +24,8 @@ func generateAccountsResponse(w http.ResponseWriter, req *http.Request, cfg Conf
 
 	} else {
 		// At this point we know there must be a valid ok_access_key.  We use the first 8 bytes as an identifier in bookwerx.
-		ok_access_key8 := getOKAccessKey(req.Header)
+		//ok_access_key8 := getOKAccessKey(req.Header)
+		ok_access_key8 := getUserId(req.Header) // switch from using key8 to user id
 
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 

@@ -23,6 +23,31 @@ func getOKAccessKey(headers map[string][]string) string {
 	return ""
 }
 
+// Given the ok access key, determine the user_id
+func getUserId(headers map[string][]string) string {
+	if apikey, ok := headers["Ok-Access-Key"]; ok {
+		// Is this key defined with this OKCatbox server?
+		txn := db.Txn(false)
+		defer txn.Abort()
+
+		raw, err := txn.First("credentials", "id", apikey[0])
+		if err != nil {
+			s := fmt.Sprintf("wallet.go:getUserId:", err)
+			log.Error(s)
+			return "error"
+		}
+
+		if raw == nil {
+			s := fmt.Sprintf("wallet.go:getUserId: The apikey %s is not defined on this OKCatbox server.", apikey)
+			log.Error(s)
+			return "error"
+		}
+		return raw.(*utils.Credentials).UserID
+
+	}
+	return ""
+}
+
 func generateWalletResponse(w http.ResponseWriter, req *http.Request, cfg Config) (retVal []byte) {
 
 	retVal, err := checkSigHeaders(w, req)
@@ -31,7 +56,8 @@ func generateWalletResponse(w http.ResponseWriter, req *http.Request, cfg Config
 
 	} else {
 		// At this point we know there must be a valid ok_access_key.  We use the first 8 bytes as an identifier in bookwerx.
-		ok_access_key8 := getOKAccessKey(req.Header)
+		//ok_access_key8 := getOKAccessKey(req.Header)
+		ok_access_key8 := getUserId(req.Header) // switch from using key8 to user id
 
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 
