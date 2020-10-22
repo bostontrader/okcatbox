@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	bw_api "github.com/bostontrader/bookwerx-common-go"
 	"github.com/gojektech/heimdall/httpclient"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
@@ -354,38 +355,6 @@ func fixDot(b []byte) {
 	}
 }
 
-// Generic get on the API
-func get(client *httpclient.Client, url string) ([]byte, error) {
-
-	req, err := http.NewRequest("GET", url, nil)
-	if err != nil {
-		fmt.Println("bookwerx-api.go:get: NewRequest error: %v", err)
-		return nil, err
-	}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		fmt.Println("bookwerx-api.go:get: client.Do error: %v", err)
-		return nil, err
-	}
-
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("bookwerx-api.go:get: ReadAll error: %v", err)
-		return nil, err
-	}
-	_ = resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		fmt.Println("Status Code error: expected= 200, received=", resp.StatusCode)
-		fmt.Println("body=", string(body))
-		return nil, err
-	}
-
-	return body, nil
-
-}
-
 /*
 A transfer has a source and destination (from, to) account in bookwerx.  Each account is tagged with two categories and is configured to use
 a specific currency. More particularly:
@@ -412,7 +381,7 @@ func getTransferAccountID(client *httpclient.Client, transfer_cat_id int32, ok_a
 	query := fmt.Sprintf("%s%%20%s%%20%s", selectt, from, where)
 	url := fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
 
-	body, err := get(client, url)
+	body, err := bw_api.Get(client, url)
 	if err != nil {
 		fmt.Println("bookwerx-api.go:getTransferAccountID 1: get error: ", err)
 		return -1, err
@@ -444,7 +413,7 @@ func getTransferAccountID(client *httpclient.Client, transfer_cat_id int32, ok_a
 	group := "GROUP%20BY%20accounts_categories.account_id%20HAVING%20COUNT(DISTINCT%20accounts_categories.account_id)%3d2"
 	query = fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where, and, group)
 	url = fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-	body, err = get(client, url)
+	body, err = bw_api.Get(client, url)
 	if err != nil {
 		fmt.Println("bookwerx-api.go:getTransferAccountID 2: get error: ", err)
 		return

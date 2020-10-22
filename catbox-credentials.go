@@ -7,12 +7,40 @@ import (
 	"github.com/gojektech/heimdall/httpclient"
 	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
+	"math/rand"
 	"net/http"
 	"time"
 )
 
+const letterBytes = "ABCDEF0123456789"
+const (
+	letterIdxBits = 4                    // 4 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+)
+
+var src = rand.NewSource(time.Now().UnixNano())
+
+func RandStringBytesMaskImprSrc(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return string(b)
+}
+
 // /catbox/credentials
-func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
+func catboxCredentialsHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
 
 	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
 
@@ -23,18 +51,18 @@ func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Con
 			Type   string
 		}
 
-		type User struct {
-			UserID string
-		}
+		//type User struct {
+		//UserID string
+		//}
 
 		// 1. Parse the body into JSON.
 		credentialsRequestBody := CredentialsRequestBody{}
 		dec := json.NewDecoder(req.Body)
 		err := dec.Decode(&credentialsRequestBody)
 		if err != nil {
-			s := fmt.Sprintf("credentials.go:catbox_credentialsHandler: cannot JSON decode request body %v\n", err)
+			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: cannot JSON decode request body %v\n", err)
 			log.Error(s)
-			fmt.Fprintf(w, s)
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
@@ -45,27 +73,27 @@ func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Con
 		switch credentialsType {
 		case "read", "read-trade", "read-withdraw":
 		default:
-			s := fmt.Sprintf("credentials.go:catbox_credentialsHandler: type must be read, read-trade, or read-withdraw\n")
+			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: type must be read, read-trade, or read-withdraw\n")
 			log.Error(s)
-			fmt.Fprintf(w, s)
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
 		// 2.2 userID
 		userID := credentialsRequestBody.UserID
 		if userID == "" {
-			s := fmt.Sprintf("credentials.go:catbox_credentialsHandler: you must specify a user_id\n")
+			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: you must specify a user_id\n")
 			log.Error(s)
-			fmt.Fprintf(w, s)
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
 		// 3. Generate the credentials
 		u4, err := uuid.NewV4()
 		if err != nil {
-			s := fmt.Sprintf("credentials.go:catbox_credentialsHandler: uuid error: %v\n", err)
+			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: uuid error: %v\n", err)
 			log.Error(s)
-			fmt.Fprintf(w, s)
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
@@ -80,9 +108,9 @@ func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Con
 		// 4. Save the credentials in the in-memory db.
 		txn := db.Txn(true)
 		if err := txn.Insert("credentials", credentials); err != nil {
-			s := fmt.Sprintf("credentials.go:catbox_credentialsHandler: credentials save error: %v\n", err)
+			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: credentials save error: %v\n", err)
 			log.Error(s)
-			fmt.Fprintf(w, s)
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 		txn.Commit()
@@ -109,8 +137,8 @@ func catbox_credentialsHandler(w http.ResponseWriter, req *http.Request, cfg Con
 
 		// 5.
 		retVal, _ := json.Marshal(credentials) // Ignore the error, assume this always works.
-		fmt.Fprintf(w, "%s\n", string(retVal))
+		_, _ = fmt.Fprintf(w, "%s\n", string(retVal))
 	} else {
-		fmt.Fprintf(w, "use POST not GET")
+		_, _ = fmt.Fprintf(w, "use POST not GET")
 	}
 }

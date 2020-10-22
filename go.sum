@@ -1,5 +1,7 @@
 github.com/DataDog/datadog-go v3.7.1+incompatible/go.mod h1:LButxg5PwREeZtORoXG3tL4fMGNddJ+vMq1mwgfaqoQ=
 github.com/afex/hystrix-go v0.0.0-20180209013831-27fae8d30f1a/go.mod h1:SkGFH1ia65gfNATL8TAiHDNxPzPdmEL5uirI2Uyuz6c=
+github.com/bostontrader/bookwerx-common-go v0.0.0-20201016013421-418d927f7466 h1:gWl/pdW78WJJHicggXRS1pxB0iaFL2c4IZwFcXuDItE=
+github.com/bostontrader/bookwerx-common-go v0.0.0-20201016013421-418d927f7466/go.mod h1:nkTKCuqcBL6D9dnII4jkak8BfN+Vq26Vy+ZFAq1JcRQ=
 github.com/bostontrader/okcatbox v0.0.0-20200502231605-59493f6ec80d h1:30TMyxhQIxJTTGpJsS2I75nFHZGGQLsGALQxO3r7Izk=
 github.com/bostontrader/okcatbox v0.0.0-20200502231605-59493f6ec80d/go.mod h1:VxIf6xA57RYAedO1F5q8T2UReMv8svfD04UyMCBjpOw=
 github.com/bostontrader/okcommon v0.0.0-20200429235446-4e3fbabac6ed h1:0QN+eAgwTou+r7iw7HmPKlvHoLBOZftxinErhN8hImo=

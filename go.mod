@@ -3,6 +3,7 @@ module github.com/bostontrader/okcatbox
 go 1.14
 
 require (
+	github.com/bostontrader/bookwerx-common-go v0.0.0-20201016013421-418d927f7466
 	github.com/bostontrader/okcommon v0.0.0-20201013231251-3bc178f7700b
 	github.com/gojektech/heimdall v5.0.2+incompatible
 	github.com/gojektech/heimdall/v6 v6.1.0 // indirect

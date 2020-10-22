@@ -1,15 +1,12 @@
 package main
 
 import (
-	"encoding/json"
 	"flag"
-	"fmt"
 	"github.com/bostontrader/okcommon"
 	"github.com/hashicorp/go-memdb"
 	log "github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
 	"io/ioutil"
-	"math/rand"
 	"net/http"
 	"os"
 	"strings"
@@ -93,7 +90,7 @@ func validateAccessKey(headers map[string][]string) (exists, valid bool) {
 	return
 }
 
-func validateCurrencyParam(req *http.Request) (exists, valid bool) {
+/*func validateCurrencyParam(req *http.Request) (exists, valid bool) {
 
 	if value, ok := req.URL.Query()["currency"]; ok {
 		// currency exists as a parameter.  Now try to validate it.
@@ -120,6 +117,7 @@ func validateCurrencyParam(req *http.Request) (exists, valid bool) {
 	}
 	return
 }
+*/
 
 func validatePassPhrase(headers map[string][]string) (exists, valid bool) {
 	if value, ok := headers["Ok-Access-Passphrase"]; ok {
@@ -171,82 +169,6 @@ func validateTimestamp(headers map[string][]string) (exists, valid, expired bool
 	return
 }
 
-func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return
-
-	} else {
-		//retVal, _ = getJsonResponseGood()
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
-
-		currencies := make([]utils.CurrenciesEntry, 1)
-		currencies[0] = utils.CurrenciesEntry{CanDeposit: "cd", CanWithdraw: "cw", CurrencyID: "c", Name: "n", MinWithdrawal: "mw"}
-		retVal, _ := json.Marshal(currencies)
-		return retVal
-	}
-
-	return
-}
-
-func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return
-
-	} else {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
-
-		withdrawalFees := make([]utils.WithdrawalFee, 1)
-		withdrawalFees[0] = utils.WithdrawalFee{CurrencyID: "c", MinFee: "minf", MaxFee: "maxf"}
-		retVal, _ = json.Marshal(withdrawalFees)
-
-	}
-
-	return
-}
-
-const letterBytes = "ABCDEF0123456789"
-const (
-	letterIdxBits = 4                    // 4 bits to represent a letter index
-	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
-	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
-)
-
-var src = rand.NewSource(time.Now().UnixNano())
-
-func RandStringBytesMaskImprSrc(n int) string {
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return string(b)
-}
-
-// 2. Request handlers
-func currencies(w http.ResponseWriter, req *http.Request) {
-	retVal := generateCurrenciesResponse(w, req, "GET", "/api/account/v3/currencies")
-	fmt.Fprintf(w, string(retVal))
-}
-
-// /api/account/v3/withdrawal/fee
-func withdrawalFee(w http.ResponseWriter, req *http.Request) {
-	retVal := generateWithdrawalFeeResponse(w, req, "GET", "/api/account/v3/withdrawal/fee")
-	fmt.Fprintf(w, string(retVal))
-}
-
 func main() {
 
 	// 1. Setup CLI parsing
@@ -280,7 +202,7 @@ func main() {
 
 	cfg := Config{}
 
-	err = yaml.Unmarshal([]byte(data), &cfg)
+	err = yaml.Unmarshal(data, &cfg)
 	if err != nil {
 		log.Fatalf("error: %v", err)
 	}
@@ -288,22 +210,33 @@ func main() {
 	// 2. Create the in-memory DB schema and db
 	schema := &memdb.DBSchema{
 		Tables: map[string]*memdb.TableSchema{
-			"credentials": &memdb.TableSchema{
+			"credentials": {
 				Name: "credentials",
 				Indexes: map[string]*memdb.IndexSchema{
 					// We must have an id index so we use the Key field as the id
-					"id": &memdb.IndexSchema{
+					"id": {
 						Name:    "id",
 						Unique:  true,
 						Indexer: &memdb.StringFieldIndex{Field: "Key"},
 					},
 				},
 			},
-			"withdrawalFees": &memdb.TableSchema{
+			"currencies": {
+				Name: "currencies",
+				Indexes: map[string]*memdb.IndexSchema{
+					// We must have an id index so we use the Key field as the id
+					"id": {
+						Name:    "id",
+						Unique:  true,
+						Indexer: &memdb.StringFieldIndex{Field: "CurrencyID"},
+					},
+				},
+			},
+			"withdrawalFees": {
 				Name: "withdrawalFees",
 				Indexes: map[string]*memdb.IndexSchema{
 					// We must have an id index so we use the CurrencyID field as the id
-					"id": &memdb.IndexSchema{
+					"id": {
 						Name:    "id",
 						Unique:  true,
 						Indexer: &memdb.StringFieldIndex{Field: "CurrencyID"},
@@ -315,19 +248,27 @@ func main() {
 
 	db, err = memdb.NewMemDB(schema)
 	if err != nil {
-		panic(err)
+		log.Fatalf("error: %v", err)
 	}
 
-	// 3. Hardwire a first set of withdrawal fees
+	// 3. Hardwire some initial values
+
+	// 3.1 Currencies
 	txn := db.Txn(true)
-	n2 := &utils.WithdrawalFee{"BTC", "0.00040000", "0.01000000"}
-	n3 := &utils.WithdrawalFee{"LTC", "0.00100000", "0.00200000"}
 
-	if err := txn.Insert("withdrawalFees", n2); err != nil {
-		panic(err)
+	if err := txn.Insert("currencies", &utils.CurrenciesEntry{CanDeposit: "1", CanWithdraw: "1", CurrencyID: "BTC", Name: "", MinWithdrawal: "0.0001"}); err != nil {
+		log.Fatalf("error: %v", err)
 	}
-	if err := txn.Insert("withdrawalFees", n3); err != nil {
-		panic(err)
+	if err := txn.Insert("currencies", &utils.CurrenciesEntry{CanDeposit: "1", CanWithdraw: "1", CurrencyID: "LTC", Name: "", MinWithdrawal: "0.0001"}); err != nil {
+		log.Fatalf("error: %v", err)
+	}
+
+	// 3.2 Withdrawal fees
+	if err := txn.Insert("withdrawalFees", &utils.WithdrawalFee{CurrencyID: "BTC", MinFee: "0.00040000", MaxFee: "0.01000000"}); err != nil {
+		log.Fatalf("error: %v", err)
+	}
+	if err := txn.Insert("withdrawalFees", &utils.WithdrawalFee{CurrencyID: "LTC", MinFee: "0.00100000", MaxFee: "0.00200000"}); err != nil {
+		log.Fatalf("error: %v", err)
 	}
 
 	txn.Commit()
@@ -336,7 +277,7 @@ func main() {
 
 	// 4.1 Unique to the Catbox
 	http.HandleFunc("/catbox/credentials", func(w http.ResponseWriter, req *http.Request) {
-		catbox_credentialsHandler(w, req, cfg)
+		catboxCredentialsHandler(w, req, cfg)
 	})
 
 	http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {

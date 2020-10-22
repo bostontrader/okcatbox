@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	bw_api "github.com/bostontrader/bookwerx-common-go"
 	utils "github.com/bostontrader/okcommon"
 	"github.com/gojektech/heimdall/httpclient"
 	"github.com/shopspring/decimal"
@@ -105,7 +106,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 		query := fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where)
 		url := fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
 
-		body, err := get(client, url)
+		body, err := bw_api.Get(client, url)
 		if err != nil {
 			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: %v\n", err)
 			log.Error(s)
@@ -161,7 +162,7 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 		group := "GROUP%20BY%20accounts_categories.account_id%20HAVING%20COUNT(DISTINCT%20accounts_categories.account_id)%3d2"
 		query = fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where, and, group)
 		url = fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-		body, err = get(client, url)
+		body, err = bw_api.Get(client, url)
 		if err != nil {
 			fmt.Println("catbox-deposit.go:generateCatboxDepositResponse 2: get error: ", err)
 			return
