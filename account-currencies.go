@@ -13,33 +13,34 @@ func currencies(w http.ResponseWriter, req *http.Request) {
 	_, _ = fmt.Fprintf(w, string(retVal))
 }
 
-func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request) (retVal []byte) {
+func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request) []byte {
 
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return // ???
-	} else {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
-
-		// Create read-only transaction
-		txn := db.Txn(false)
-		defer txn.Abort()
-
-		// Get all of the defined currencies
-		it, err := txn.Get("currencies", "id") // id is an alias for CurrencyID
-		if err != nil {
-			log.Fatalf("error: %v", err) // This should never happen
-		}
-
-		var currencies []utils.CurrenciesEntry
-
-		for obj := it.Next(); obj != nil; obj = it.Next() {
-			p := obj.(*utils.CurrenciesEntry)
-			currencies = append(currencies, *p)
-		}
-
-		retVal, _ := json.Marshal(currencies)
+	// This pattern of error handling will return an expected server response.  Don't change this.
+	retVal, errb := checkSigHeaders(w, req)
+	if errb {
 		return retVal
 	}
+
+	setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+
+	// Create read-only transaction
+	txn := db.Txn(false)
+	defer txn.Abort()
+
+	// Get all of the defined currencies
+	it, err := txn.Get("currencies", "id") // id is an alias for CurrencyID
+	if err != nil {
+		log.Fatalf("error: %v", err) // This should never happen
+	}
+
+	var currencies []utils.CurrenciesEntry
+
+	for obj := it.Next(); obj != nil; obj = it.Next() {
+		p := obj.(*utils.CurrenciesEntry)
+		currencies = append(currencies, *p)
+	}
+
+	retVal, _ = json.Marshal(currencies)
+	return retVal
 
 }

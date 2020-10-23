@@ -17,8 +17,6 @@ func fundingDepositAddressHandler(w http.ResponseWriter, req *http.Request, cfg 
 
 func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, cfg Config) []byte {
 
-	log.Printf("%s %s %s %s", req.Method, req.URL, req.Header, req.Form)
-
 	// This pattern of error handling will return an expected server response.  Don't change this.
 	retVal, errb := checkSigHeaders(w, req)
 	if errb {
@@ -26,7 +24,6 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, cf
 	}
 
 	// Check for the existence of a currency.
-	// This pattern of error handling will return an expected server response.  Don't change this.
 	currencies, ok := req.URL.Query()["currency"]
 	if !ok {
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
@@ -37,12 +34,11 @@ func generateDepositAddressResponse(w http.ResponseWriter, req *http.Request, cf
 
 	// We'll need an HTTP client for the subsequent requests.
 	timeout := 5000 * time.Millisecond
-	client := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
+	httpClient := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
 
 	// Ensure that it's a valid currency.
-	// This pattern of error handling will return an expected server response.  Don't change this.
 	currencySymbol := currencies[0] // we know there must be at least one currency.  Only care about the first one.
-	_, err := getCurrencyBySym(client, currencySymbol, cfg)
+	_, err := getCurrencyBySym(httpClient, currencySymbol, cfg)
 	if err != nil {
 		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": ""})
 		w.WriteHeader(400)
