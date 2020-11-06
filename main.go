@@ -27,14 +27,17 @@ type Bookwerx struct {
 	APIKey string
 	Server string
 
+	// Transactions may be tagged as deposits.
+	CatDeposit uint32 `yaml:"cat_deposit"`
+
 	// Customer accounts shall be tagged with these categories where applicable.
-	// These are deprecated.  Use TransferCats instead.
-	FundingCat       int32 `yaml:"funding_cat"`
-	SpotAvailableCat int32 `yaml:"spot_available_cat"`
-	SpotHoldCat      int32 `yaml:"spot_hold_cat"`
+	// These are duplicated with TransferCats.  Figure this out.
+	CatFunding       uint32 `yaml:"cat_funding"`
+	CatSpotAvailable uint32 `yaml:"cat_spot_available"`
+	CatSpotHold      uint32 `yaml:"cat_spot_hold"`
 
 	// Any hot wallet shall be tagged with this category.
-	HotWalletCat int32 `yaml:"hot_wallet_cat"`
+	CatHotWallet uint32 `yaml:"hot_wallet_cat"`
 
 	// The OKEx API specifies transfer endpoints using strings.  ie. "1" = spot, "6" = funding, etc.
 	TransferCats map[string]AH `yaml:"transfer_cats"`
@@ -281,11 +284,11 @@ func main() {
 	})
 
 	http.HandleFunc("/catbox/deposit", func(w http.ResponseWriter, req *http.Request) {
-		catbox_depositHandler(w, req, cfg)
+		catboxDepositHandler(w, req, cfg)
 	})
 
-	// 4.2 Funding
-	http.HandleFunc("/api/account/v3/currencies", currencies)
+	// 4.2 /api/account
+	http.HandleFunc("/api/account/v3/currencies", accountCurrenciesHandler)
 
 	http.HandleFunc("/api/account/v3/deposit/address", func(w http.ResponseWriter, req *http.Request) {
 		fundingDepositAddressHandler(w, req, cfg)
@@ -303,19 +306,23 @@ func main() {
 		account_depositHistoryHandler(w, req, cfg, currency)
 	})
 
+	http.HandleFunc("/api/account/v3/ledger", func(w http.ResponseWriter, req *http.Request) {
+		accountLedgerHandler(w, req, cfg)
+	})
+
 	http.HandleFunc("/api/account/v3/transfer", func(w http.ResponseWriter, req *http.Request) {
 		account_transferHandler(w, req, cfg)
 	})
 
 	http.HandleFunc("/api/account/v3/wallet", func(w http.ResponseWriter, req *http.Request) {
-		account_walletHandler(w, req, cfg)
+		accountWalletHandler(w, req, cfg)
 	})
 
 	http.HandleFunc("/api/account/v3/withdrawal/fee", withdrawalFee)
 
 	// 4.3 Spot
 	http.HandleFunc("/api/spot/v3/accounts", func(w http.ResponseWriter, req *http.Request) {
-		spot_accountsHandler(w, req, cfg)
+		spotAccountsHandler(w, req, cfg)
 	})
 
 	// 5. Let er rip!

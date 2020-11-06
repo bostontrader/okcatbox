@@ -4,79 +4,83 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	bw_api "github.com/bostontrader/bookwerx-common-go"
 	utils "github.com/bostontrader/okcommon"
 	"github.com/gojektech/heimdall/httpclient"
 	"github.com/shopspring/decimal"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"net/http"
 	"time"
 )
 
 // /catbox/deposit
-func catbox_depositHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
-	retVal := generateCatboxDepositResponse(w, req, cfg)
-	fmt.Fprintf(w, string(retVal))
+func catboxDepositHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
+	retVal := generateCatboxDepositResponse(req, cfg)
+	_, _ = fmt.Fprintf(w, string(retVal))
 }
 
-func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg Config) (retVal []byte) {
+func generateCatboxDepositResponse(req *http.Request, cfg Config) (retVal []byte) {
 
-	log.Printf("%s %s %s %s", req.Method, req.URL, req.Header, req.Form)
+	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
+	methodName := "okcatbox:catbox-deposit.go:generateCatboxDepositResponse"
 
 	if req.Method == http.MethodPost {
 
-		// 1. Retrieve and validate the request parameters.
-		if err := req.ParseForm(); err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: ParseForm err: %v\n", err)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+		type DepositRequestBody struct {
+			Apikey         string
+			CurrencySymbol string
+			Quan           string
+			Time           string
 		}
 
-		// 1.1 OKCatbox apikey.
-		apikey := req.FormValue("apikey")
+		// 1. Read the body first because we may need to use it twice.
+		reqBody, err := ioutil.ReadAll(req.Body)
+		if s, errb := squeal(methodName, "ioutil.ReadAll", err); errb {
+			return []byte(s)
+		}
+
+		// 2. Parse the request body into JSON.
+		depositRequestBody := DepositRequestBody{}
+		err = json.NewDecoder(bytes.NewReader(reqBody)).Decode(&depositRequestBody)
+		if s, errb := squealJSONDecode(methodName, reqBody, err); errb {
+			return []byte(s)
+		}
+
+		// 3. Validate the input params from the request
+
+		// 3.1 OKCatbox apikey.
+		apikey := depositRequestBody.Apikey
 
 		// Is this key defined with this OKCatbox server?
 		txn := db.Txn(false)
 		defer txn.Abort()
 
 		raw, err := txn.First("credentials", "id", apikey)
-		if err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: Error searching for APIKEY: %v\n", err)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+		if s, errb := squeal(methodName, "txn.First", err); errb {
+			return []byte(s)
 		}
 
 		if raw == nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: The apikey %s is not defined on this OKCatbox server.\n", apikey)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+			s := fmt.Sprintf("%s: The apikey %s is not defined on this OKCatbox server.\n", methodName, apikey)
+			return []byte(s)
 		}
 
 		// We'll need an HTTP client for the subsequent requests.
 		timeout := 5000 * time.Millisecond
-		client := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
+		httpClient := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
 
-		// 1.2 currency_symbol
-		currency_symbol := req.FormValue("currency_symbol")
-		currency_id, err := getCurrencyBySym(client, currency_symbol, cfg)
-		if err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: The currency_symbol %s is not defined on this OKCatbox server.\n", currency_symbol)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+		// 3.2 currencySymbol
+		currencySymbol := depositRequestBody.CurrencySymbol
+		currencyID, err := getCurrencyBySym(httpClient, currencySymbol, cfg)
+		if s, errb := squeal(methodName, fmt.Sprintf("The currency %s is not defined on this server.", currencySymbol), err); errb {
+			return []byte(s)
 		}
 
-		// 1.3 Quantity
-		quanf := req.FormValue("quan")
+		// 3.3 Quantity
+		quanf := depositRequestBody.Quan
 		quand, err := decimal.NewFromString(quanf)
-		if err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: The quan %s cannot be parsed.", quanf)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+		if s, errb := squeal(methodName, fmt.Sprintf("I cannot parse %s", quanf), err); errb {
+			return []byte(s)
 		}
 
 		quans := quand.Abs().Coefficient().String()
@@ -91,144 +95,84 @@ func generateCatboxDepositResponse(w http.ResponseWriter, req *http.Request, cfg
 			dramt = "-" + cramt
 		}
 
-		// 1.4 Time.  Just a string, no validation.
-		time := req.FormValue("time")
+		// 3.4 Time.  Just a string, no validation.
 
-		// 2. Get the account_id of the Hot Wallet for this currency.  It must exist so error if not found.
+		// 4. Get the one accountID of the Hot Wallet for this currency.
 		// Said account is:
 		// A. Tagged with whatever category corresponds with hot wallet.
 		// B. Configured to use the specified currency.
-		selectt := "SELECT%20accounts.id"
-		from := "FROM%20accounts_categories"
-		join1 := "JOIN%20accounts%20ON%20accounts.id%3daccounts_categories.account_id"
-		join2 := "JOIN%20currencies%20ON%20currencies.id%3daccounts.currency_id"
-		where := fmt.Sprintf("WHERE%%20category_id%%3d%d%%20AND%%20currencies.symbol%%3d'%s'", cfg.Bookwerx.HotWalletCat, currency_symbol)
-		query := fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where)
-		url := fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-
-		body, err := bw_api.Get(client, url)
-		if err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: %v\n", err)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
-		}
-		fixDot(body)
-
-		n1 := make([]AId, 0)
-		err = json.NewDecoder(bytes.NewReader(body)).Decode(&n1)
-		if err != nil {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: %v\n", err)
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
+		hotWalletAccountID, err := getHotWalletAccountID(currencySymbol, httpClient, cfg)
+		if s, errb := squeal(methodName, fmt.Sprintf("No hot wallet found for currency %s\n", currencySymbol), err); errb {
+			return []byte(s)
 		}
 
-		if len(n1) == 0 {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: Bookwerx does not have any account properly configured.")
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
-		} else if len(n1) > 1 {
-			s := fmt.Sprintf("catbox-deposit.go:generateCatboxDepositResponse: Bookwerx has more than one suitable account.  This should never happen.")
-			log.Error(s)
-			fmt.Fprintf(w, s)
-			return
-		}
-		account_id_hot := n1[0].Id
-
-		// 3. Get the category_id for the user.  Said category is created if necessary when the user obtains credentials.
-		// So we know it must exist.
-		url = fmt.Sprintf("%s/category/bysym/%s?apikey=%s", cfg.Bookwerx.Server, raw.(*utils.Credentials).UserID, cfg.Bookwerx.APIKey)
-		user_category_id, err := getCategoryBySym(client, url)
-		if err != nil {
-			log.Error(err)
-			fmt.Fprintf(w, err.Error())
-			return
+		// 5. Get the categoryID for this user.  Said category is created if necessary when the user obtains credentials so we know it must exist.
+		userID := raw.(*utils.Credentials).UserID
+		userCategoryID, err := getCategoryBySym(userID, httpClient, cfg)
+		if s, errb := squeal(methodName, fmt.Sprintf("No category found for user %s\n", userID), err); errb {
+			return []byte(s)
 		}
 
-		// 4. Get the account_id of the funding account for this user and currency.  It might not exist yet so create it if necessary. Either way return the account_id.  Said account is:
-		// A. tagged as funding
-		// B. tagged as user
-		// C. configured for currency
-		selectt = "SELECT%20accounts.id"
-		from = "FROM%20accounts_categories"
-		join1 = "JOIN%20accounts%20ON%20accounts.id%3daccounts_categories.account_id"
-		join2 = "JOIN%20currencies%20ON%20currencies.id%3daccounts.currency_id"
-		where = fmt.Sprintf("WHERE%%20accounts_categories.category_id%%20IN%%20(%d,%d)",
-			cfg.Bookwerx.FundingCat, user_category_id,
-		)
-		and := fmt.Sprintf("AND%%20currencies.id%%3d%d", currency_id)
-		group := "GROUP%20BY%20accounts_categories.account_id%20HAVING%20COUNT(DISTINCT%20accounts_categories.account_id)%3d2"
-		query = fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where, and, group)
-		url = fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-		body, err = bw_api.Get(client, url)
-		if err != nil {
-			fmt.Println("catbox-deposit.go:generateCatboxDepositResponse 2: get error: ", err)
-			return
-		}
-		fixDot(body)
-
-		n2 := make([]AId, 0)
-		err = json.NewDecoder(bytes.NewReader(body)).Decode(&n1)
-		if err != nil {
-			fmt.Println("bookwerx-api.go: getTransferAccountID:", err)
-			return
+		// 6. Get the accountID for whichever account is tagged as funding for this user and is configured for the specified currency.
+		fundingAvailableAccountID, err := getFundingAvailableAccountID(userCategoryID, cfg.Bookwerx.CatFunding, currencyID, httpClient, cfg)
+		if s, errb := squeal(methodName, fmt.Sprintf("No funding available account found for user %s and currency %s\n", userID, currencySymbol), err); errb {
+			return []byte(s)
 		}
 
-		var account_id_user int32
-		if len(n2) == 0 {
-			// 4.1 Account not found, create it
-			account_id_user, err = postAccount(client, currency_id, raw.(*utils.Credentials).UserID, cfg)
-			if err != nil {
-				fmt.Println("catbox-deposit.go:generateCatboxDepositResponse 3.1: postAccount error: ", err)
-				return
+		// 7. If said account does not exist, create it now and tag it suitably.
+		if fundingAvailableAccountID == 0 {
+			// 7.1 Account not found, create it
+			fundingAvailableAccountID, err := postAccount(currencyID, userID, httpClient, cfg)
+			if s, errb := squeal(methodName, "postAccount", err); errb {
+				return []byte(s)
 			}
 
-			// 4.2 Tag with the user's category
-			_, err = postAcctcat(client, account_id_user, user_category_id, cfg)
-			if err != nil {
-				fmt.Println("catbox-deposit.go:generateCatboxDepositResponse 3.2: postAcctcat error: ", err)
+			// 7.2 Tag with the user's category
+			_, err = postAcctcat(fundingAvailableAccountID, userCategoryID, httpClient, cfg)
+			if s, errb := squeal(methodName, "postAcctcat user", err); errb {
+				return []byte(s)
 			}
 
-			// 4.3 Tag with funding
-			_, err = postAcctcat(client, account_id_user, cfg.Bookwerx.FundingCat, cfg)
-			if err != nil {
-				fmt.Println("catbox-deposit.go:generateCatboxDepositResponse 3.3: postAcctcat error: ", err)
-				return
+			// 7.3 Tag with funding
+			_, err = postAcctcat(fundingAvailableAccountID, cfg.Bookwerx.CatFunding, httpClient, cfg)
+			if s, errb := squeal(methodName, "postAcctcat funding", err); errb {
+				return []byte(s)
 			}
-		} else if len(n2) == 1 {
-			account_id_user = n2[0].Id // account found
-		} else if len(n2) > 1 {
-			fmt.Println("bookwerx-api.go: getTransferAccountID: There are more than one suitable accounts.  This should never happen.")
-			return
+
 		}
 
-		// 5. Now create the transaction and associated distributions.
+		// 8. Now create the transaction and associated distributions and tag it as a deposit for this user.
 
-		// 5.1 Create the tx
-		txid, err := createTransaction(client, time, cfg)
-		if err != nil {
-			log.Error(err)
-			fmt.Fprintf(w, err.Error())
-			return
+		// 8.1 Create the tx
+		txid, err := postTransaction("deposit", depositRequestBody.Time, httpClient, cfg)
+		if s, errb := squeal(methodName, "postTransaction", err); errb {
+			return []byte(s)
 		}
 
-		// 5.2 Create the DR distribution
-		_, err = createDistribution(client, account_id_hot, dramt, exp, txid, cfg)
-		if err != nil {
-			log.Error(err)
-			fmt.Fprintf(w, err.Error())
-			return
+		// 8.2 Create the DR distribution
+		_, err = postDistribution(hotWalletAccountID, dramt, exp, txid, httpClient, cfg)
+		if s, errb := squeal(methodName, "postDistribution DR", err); errb {
+			return []byte(s)
 		}
 
-		// 5.3 Create the CR distribution
-		_, err = createDistribution(client, account_id_user, cramt, exp, txid, cfg)
-		if err != nil {
-			log.Error(err)
-			fmt.Fprintf(w, err.Error())
-			return
+		// 8.3 Create the CR distribution
+		_, err = postDistribution(fundingAvailableAccountID, cramt, exp, txid, httpClient, cfg)
+		if s, errb := squeal(methodName, "postDistribution CR", err); errb {
+			return []byte(s)
 		}
+
+		// 8.4 Tag with the user's category
+		_, err = postTrancat(txid, userCategoryID, httpClient, cfg)
+		if s, errb := squeal(methodName, "postTrancat user", err); errb {
+			return []byte(s)
+		}
+
+		// 8.5 Tag as a deposit
+		_, err = postTrancat(txid, cfg.Bookwerx.CatDeposit, httpClient, cfg)
+		if s, errb := squeal(methodName, "postTrancat deposit", err); errb {
+			return []byte(s)
+		}
+
 		return []byte("success")
 
 	} else {

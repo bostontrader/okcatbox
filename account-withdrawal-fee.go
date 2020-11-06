@@ -10,17 +10,15 @@ import (
 
 // /api/account/v3/withdrawal/fee
 func withdrawalFee(w http.ResponseWriter, req *http.Request) {
+	errb := checkSigHeaders(w, req)
+	if errb {
+		return
+	}
 	retVal := generateWithdrawalFeeResponse(w, req, "GET", "/api/account/v3/withdrawal/fee")
 	fmt.Fprintf(w, string(retVal))
 }
 
 func generateWithdrawalFeeResponse(w http.ResponseWriter, req *http.Request, verb string, endpoint string) (retVal []byte) {
-
-	retVal, err := checkSigHeaders(w, req)
-	if err {
-		return
-
-	}
 
 	// Check for the existence of a currency.
 	currencies, ok := req.URL.Query()["currency"]

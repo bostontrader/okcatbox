@@ -1,14 +1,8 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
-	utils "github.com/bostontrader/okcommon"
-	"github.com/gojektech/heimdall/httpclient"
-	"github.com/shopspring/decimal"
-	log "github.com/sirupsen/logrus"
 	"net/http"
-	"time"
 )
 
 // /api/account/v3/transfer
@@ -51,7 +45,7 @@ will we test for them.
 */
 func generateTransferResponse(w http.ResponseWriter, req *http.Request, cfg Config) (retVal []byte) {
 
-	if req.Method == http.MethodPost {
+	/*if req.Method == http.MethodPost {
 
 		// 1. Check the standard signature headers related to credentials
 		retVal, errb := checkSigHeaders(w, req)
@@ -198,6 +192,6 @@ func generateTransferResponse(w http.ResponseWriter, req *http.Request, cfg Conf
 	} else {
 		log.Printf("%s %s %s", req.Method, req.URL, req.Header)
 		return []byte("use post")
-	}
-
+	}*/
+	return []byte("todo")
 }

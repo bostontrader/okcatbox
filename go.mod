@@ -11,7 +11,7 @@ require (
 	github.com/hashicorp/go-memdb v1.3.0 // 2020-Oct
 	github.com/konsorten/go-windows-terminal-sequences v1.0.3 // indirect
 	github.com/nu7hatch/gouuid v0.0.0-20131221200532-179d4d0c4d8d
-	github.com/pkg/errors v0.9.1 // indirect
+	github.com/pkg/errors v0.9.1
 	github.com/shopspring/decimal v1.2.0
 	github.com/sirupsen/logrus v1.7.0
 	golang.org/x/sys v0.0.0-20201013132646-2da7054afaeb // indirect

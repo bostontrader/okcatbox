@@ -6,11 +6,15 @@ import (
 	"net/http"
 )
 
-func checkSigHeaders(w http.ResponseWriter, req *http.Request) (retVal []byte, err bool) {
+/* Examine the request headers and validate the four signature headers.
+If there is an error with any of these headers, build a suitable error message, output to the ResponseWriter with a suitable status code, and return err=True.
+If there is no error, merely return err = False
+*/
+func checkSigHeaders(w http.ResponseWriter, req *http.Request) (errb bool) {
 
-	// All of these conditions produce an error, so let's assume we have an error.
+	// Assume we have an error.
 	// Only if none of these conditions apply will we set this to false.
-	err = true
+	errb = true
 
 	// 1.1 Ok-Access-Key
 	akeyP, akeyV := validateAccessKey(req.Header)
@@ -26,52 +30,61 @@ func checkSigHeaders(w http.ResponseWriter, req *http.Request) (retVal []byte, e
 
 	// The order of comparison and the boolean senses have been empirically chosen to match the order of error detection in the real OKEx server.
 	if !akeyP {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30001()) // Access key required
 		w.WriteHeader(401)
-		retVal, _ = json.Marshal(utils.Err30001()) // Access key required
+		_, _ = w.Write(retVal)
 
 	} else if !asignP {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30002()) // Signature required
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30002()) // Signature required
+		_, _ = w.Write(retVal)
 
 	} else if !atimestampP {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30003()) // Timestamp required
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30003()) // Timestamp required
+		_, _ = w.Write(retVal)
 
 	} else if !atimestampV {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30005()) // Invalid timestamp
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30005()) // Invalid timestamp
+		_, _ = w.Write(retVal)
 
 	} else if atimestampEx {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30008()) // Timestamp expired
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30008()) // Timestamp expired
+		_, _ = w.Write(retVal)
 
 	} else if !akeyV {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30006()) // Invalid access key
 		w.WriteHeader(401)
-		retVal, _ = json.Marshal(utils.Err30006()) // Invalid access key
+		_, _ = w.Write(retVal)
 
 	} else if !apassphraseP {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30004()) // Passphrase required
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30004()) // Passphrase required
+		_, _ = w.Write(retVal)
 
 	} else if !apassphraseV {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30015()) // Invalid Passphrase
 		w.WriteHeader(400)
-		retVal, _ = json.Marshal(utils.Err30015()) // Invalid Passphrase
+		_, _ = w.Write(retVal)
 
 	} else if !asignV {
-		setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{})
+		retVal, _ := json.Marshal(utils.Err30013()) // Invalid Sign
 		w.WriteHeader(401)
-		retVal, _ = json.Marshal(utils.Err30013()) // Invalid Sign
+		_, _ = w.Write(retVal)
 
 	} else {
-		err = false
+		errb = false
 	}
 
 	return

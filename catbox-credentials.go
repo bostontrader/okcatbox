@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	utils "github.com/bostontrader/okcommon"
 	"github.com/gojektech/heimdall/httpclient"
 	uuid "github.com/nu7hatch/gouuid"
 	log "github.com/sirupsen/logrus"
+	"io/ioutil"
 	"math/rand"
 	"net/http"
 	"time"
@@ -40,59 +42,58 @@ func RandStringBytesMaskImprSrc(n int) string {
 }
 
 // /catbox/credentials
+/* Warning! This is not very secure at all!  Anybody can request new credentials using an existing user's name. */
 func catboxCredentialsHandler(w http.ResponseWriter, req *http.Request, cfg Config) {
 
 	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
+	methodName := "okcatbox:catbox-credentials.go:catboxCredentialsHandler"
 
 	if req.Method == http.MethodPost {
 
 		type CredentialsRequestBody struct {
-			UserID string `json:"user_id"`
+			UserID string
 			Type   string
 		}
 
-		//type User struct {
-		//UserID string
-		//}
-
-		// 1. Parse the body into JSON.
-		credentialsRequestBody := CredentialsRequestBody{}
-		dec := json.NewDecoder(req.Body)
-		err := dec.Decode(&credentialsRequestBody)
-		if err != nil {
-			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: cannot JSON decode request body %v\n", err)
-			log.Error(s)
+		// 1. Read the body first because we may need to use it twice.
+		reqBody, err := ioutil.ReadAll(req.Body)
+		if s, errb := squeal(methodName, "ioutil.ReadAll", err); errb {
 			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
-		// 2. Validate the input params from the body
+		// 2. Parse the request body into JSON.
+		credentialsRequestBody := CredentialsRequestBody{}
+		dec := json.NewDecoder(bytes.NewReader(reqBody))
+		err = dec.Decode(&credentialsRequestBody)
+		if s, errb := squealJSONDecode(methodName, reqBody, err); errb {
+			_, _ = fmt.Fprintf(w, s)
+			return
+		}
 
-		// 2.1 credentialsType
+		// 3. Validate the input params from the request
+
+		// 3.1 credentialsType
 		credentialsType := credentialsRequestBody.Type
 		switch credentialsType {
-		case "read", "read-trade", "read-withdraw":
+		case "read", "read-trade", "read-withdraw": // must be one of these
 		default:
-			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: type must be read, read-trade, or read-withdraw\n")
-			log.Error(s)
+			s := fmt.Sprintf("%s: type must be read, read-trade, or read-withdraw\n", methodName)
 			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
-		// 2.2 userID
+		// 3.2 userID
 		userID := credentialsRequestBody.UserID
 		if userID == "" {
-			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: you must specify a user_id\n")
-			log.Error(s)
+			s := fmt.Sprintf("%s: you must specify a user_id\n", methodName)
 			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
-		// 3. Generate the credentials
+		// 4. Generate the credentials
 		u4, err := uuid.NewV4()
-		if err != nil {
-			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: uuid error: %v\n", err)
-			log.Error(s)
+		if s, errb := squeal(methodName, "uuid.NewV4", err); errb {
 			_, _ = fmt.Fprintf(w, s)
 			return
 		}
@@ -105,38 +106,39 @@ func catboxCredentialsHandler(w http.ResponseWriter, req *http.Request, cfg Conf
 		credentials := &utils.Credentials{Key: u4.String(), SecretKey: tryArr[0], Passphrase: "valid passphrase",
 			Type: credentialsType, UserID: userID}
 
-		// 4. Save the credentials in the in-memory db.
+		// 5. Save the credentials in the in-memory db.
 		txn := db.Txn(true)
-		if err := txn.Insert("credentials", credentials); err != nil {
-			s := fmt.Sprintf("credentials.go:catboxCredentialsHandler: credentials save error: %v\n", err)
-			log.Error(s)
+		err = txn.Insert("credentials", credentials)
+		if s, errb := squeal(methodName, "txn.Insert", err); errb {
 			_, _ = fmt.Fprintf(w, s)
 			return
 		}
+
 		txn.Commit()
 
-		// 5. Now update bookwerx with a category for the user's userID.  We will create accounts and tag them with this category, later, if necessary.
+		// 6. Now update bookwerx with a category for the user's userID.  We will create accounts and tag them with this category, later, as necessary.
 
-		// 5.1 We'll need an HTTP client for the subsequent requests.
+		// 6.1 We'll need an HTTP client for the subsequent requests.
 		timeout := 5000 * time.Millisecond
-		client := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
+		httpClient := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
 
-		// 5.2 Make a new category for this user's userID.
+		// 6.2 Make a new category for this user's userID.
 		// It's tempting to save the newly created category_id in the in-memory db now because we need it later.  However, doing so
 		// would require a fair bit of re-engineering and we can always query bookwerx to get this category_id when we need it.
 		// So therefore let's just take the ez path for now.
-		_, err = postCategory(
-			client,
-			cfg.Bookwerx.Server,
-			cfg.Bookwerx.APIKey, // The apikey that cb uses with bw
-			userID)              // The new category will use this as title and symbol
-		if err != nil {
-			log.Fatalf("error: %v", err)
+		_, err = postCategory(userID, userID, httpClient, cfg)
+		if s, errb := squeal(methodName, "postCategory", err); errb {
+			_, _ = fmt.Fprintf(w, s)
 			return
 		}
 
-		// 5.
-		retVal, _ := json.Marshal(credentials) // Ignore the error, assume this always works.
+		// 7. All done!
+		retVal, err := json.Marshal(credentials)
+		if s, errb := squealJSONMarshal(methodName, credentials, err); errb {
+			_, _ = fmt.Fprintf(w, s)
+			return
+		}
+
 		_, _ = fmt.Fprintf(w, "%s\n", string(retVal))
 	} else {
 		_, _ = fmt.Fprintf(w, "use POST not GET")

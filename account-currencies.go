@@ -8,29 +8,31 @@ import (
 	"net/http"
 )
 
-func currencies(w http.ResponseWriter, req *http.Request) {
-	retVal := generateCurrenciesResponse(w, req)
+func accountCurrenciesHandler(w http.ResponseWriter, req *http.Request) {
+	errb := checkSigHeaders(w, req)
+	if errb {
+		return
+	}
+	retVal := generateCurrenciesResponse(req)
 	_, _ = fmt.Fprintf(w, string(retVal))
 }
 
-func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request) []byte {
+func generateCurrenciesResponse(req *http.Request) []byte {
 
-	// This pattern of error handling will return an expected server response.  Don't change this.
-	retVal, errb := checkSigHeaders(w, req)
-	if errb {
-		return retVal
-	}
+	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
+	methodName := "okcatbox:account-currencies.go:generateCurrenciesResponse"
 
-	setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
+	//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
-	// Create read-only transaction
+	// 1. Get all of the currencies defined in the in-memory db
 	txn := db.Txn(false)
 	defer txn.Abort()
 
-	// Get all of the defined currencies
 	it, err := txn.Get("currencies", "id") // id is an alias for CurrencyID
 	if err != nil {
-		log.Fatalf("error: %v", err) // This should never happen
+		s := fmt.Sprintf("%s: txn.Get error :%v", methodName, err)
+		log.Error(s)
+		return []byte(s)
 	}
 
 	var currencies []utils.CurrenciesEntry
@@ -40,7 +42,14 @@ func generateCurrenciesResponse(w http.ResponseWriter, req *http.Request) []byte
 		currencies = append(currencies, *p)
 	}
 
-	retVal, _ = json.Marshal(currencies)
+	// 2. Return the results.
+	retVal, err := json.Marshal(currencies)
+	if err != nil {
+		s := fmt.Sprintf("%s: json.Marshal error: %v\ncurrencies=%+v\n", methodName, err, currencies)
+		log.Error(s)
+		return []byte(s)
+	}
+
 	return retVal
 
 }
