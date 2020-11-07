@@ -122,7 +122,7 @@ func generateCatboxDepositResponse(req *http.Request, cfg Config) (retVal []byte
 		// 7. If said account does not exist, create it now and tag it suitably.
 		if fundingAvailableAccountID == 0 {
 			// 7.1 Account not found, create it
-			fundingAvailableAccountID, err := postAccount(currencyID, userID, httpClient, cfg)
+			fundingAvailableAccountID, err = postAccount(currencyID, userID, httpClient, cfg)
 			if s, errb := squeal(methodName, "postAccount", err); errb {
 				return []byte(s)
 			}
