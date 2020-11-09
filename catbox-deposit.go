@@ -101,7 +101,7 @@ func generateCatboxDepositResponse(req *http.Request, cfg Config) (retVal []byte
 		// Said account is:
 		// A. Tagged with whatever category corresponds with hot wallet.
 		// B. Configured to use the specified currency.
-		hotWalletAccountID, err := getHotWalletAccountID(currencySymbol, httpClient, cfg)
+		hotWalletAccountID, err := accountDepositHistoryGetHotWalletAccountID(currencySymbol, httpClient, cfg)
 		if s, errb := squeal(methodName, fmt.Sprintf("No hot wallet found for currency %s\n", currencySymbol), err); errb {
 			return []byte(s)
 		}

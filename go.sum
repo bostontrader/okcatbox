@@ -26,6 +26,8 @@ github.com/bostontrader/okcommon v0.0.0-20201012231520-5e9c4ea385dc h1:Z2IyFpoLb
 github.com/bostontrader/okcommon v0.0.0-20201012231520-5e9c4ea385dc/go.mod h1:fha9Ng4sIP6ECUazxex3rtE3Muqd5D4TLlGXDjwPLhU=
 github.com/bostontrader/okcommon v0.0.0-20201013231251-3bc178f7700b h1:SsO08MYB4CcYNM5ea5XEVfOzR7Pd1hxPaztqFr6daEc=
 github.com/bostontrader/okcommon v0.0.0-20201013231251-3bc178f7700b/go.mod h1:fha9Ng4sIP6ECUazxex3rtE3Muqd5D4TLlGXDjwPLhU=
+github.com/bostontrader/okcommon v0.0.0-20201108224027-822d38cd4087 h1:pk4xXI5WJn51yBCPh/DQMXtxmi9J5czJNCIAMNvF0EE=
+github.com/bostontrader/okcommon v0.0.0-20201108224027-822d38cd4087/go.mod h1:fha9Ng4sIP6ECUazxex3rtE3Muqd5D4TLlGXDjwPLhU=
 github.com/cactus/go-statsd-client/statsd v0.0.0-20200423205355-cb0885a1018c/go.mod h1:l/bIBLeOl9eX+wxJAzxS4TveKRtAqlyDpHjhkfO0MEI=
 github.com/davecgh/go-spew v1.1.0 h1:ZDRjVQ15GmhC3fiQ8ni8+OwkZQO4DARzQgrnXU1Liz8=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

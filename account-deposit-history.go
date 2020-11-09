@@ -1,7 +1,9 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
+	utils "github.com/bostontrader/okcommon"
 	"github.com/gojektech/heimdall/httpclient"
 	log "github.com/sirupsen/logrus"
 	"net/http"
@@ -9,31 +11,35 @@ import (
 )
 
 type Distributions struct {
-	Amount        int64
-	AmountExp     int8
-	TransactionID uint32 `json:"transaction_id"`
+	CurrencySymbol string `json:"currencies.symbol"`
+	Amount         int64  `json:"distributions.amount"`
+	AmountExp      int8   `json:"distributions.amount_exp"`
+	TransactionID  uint32 `json:"distributions.transaction_id"`
+	Time           string `json:"transactions.time"`
 }
 
 /* Two endpoints use this handler:
 /api/account/v3/deposit/history    // for all currencies
 /api/account/v3/deposit/history/   // filter for a specific currency
 */
-func account_depositHistoryHandler(w http.ResponseWriter, req *http.Request, cfg Config, currencySymbol string) {
+func accountDepositHistoryHandler(w http.ResponseWriter, req *http.Request, cfg Config, currencySymbol string) {
 	errb := checkSigHeaders(w, req)
 	if errb {
 		return
 	}
-	retVal := generateAccountDepositHistoryResponse(req, cfg)
+	retVal := generateAccountDepositHistoryResponse(currencySymbol, req, cfg)
 	_, _ = fmt.Fprintf(w, string(retVal))
 }
 
-func generateAccountDepositHistoryResponse(req *http.Request, cfg Config) []byte {
+func generateAccountDepositHistoryResponse(currencySymbol string, req *http.Request, cfg Config) []byte {
 
 	log.Printf("%s %s %s", req.Method, req.URL, req.Header)
-	//methodName := "okcatbox:account-deposit-address.go:generateAccountDepositHistoryResponse"
+	methodName := "okcatbox:account-deposit-history.go:generateAccountDepositHistoryResponse"
+
+	//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
 
 	// 1. We'll need an HTTP client for the subsequent requests.
-	timeout := 5000 * time.Millisecond
+	timeout := 60000 * time.Millisecond
 	httpClient := httpclient.NewClient(httpclient.WithHTTPTimeout(timeout))
 
 	// 2. We'll need the UserID associated with the catbox credentials.
@@ -43,50 +49,49 @@ func generateAccountDepositHistoryResponse(req *http.Request, cfg Config) []byte
 	bwUserCat, _ := getCategoryBySym(userID, httpClient, cfg)
 
 	// 4. Get all deposit transactions for this user
-	searchCategories := make([]uint32, 2)
+	searchCategories := make([]uint32, 0)
 	searchCategories = append(searchCategories, bwUserCat)
 	searchCategories = append(searchCategories, cfg.Bookwerx.CatDeposit)
-	depositTransactions, _ := getTransactionsByCat(searchCategories, httpClient, cfg)
-	fmt.Printf("%+v", depositTransactions)
-	// 5. Get all distributions for these transactions
+	depositTransactions, err := accountDepositHistoryGetTransactionsByCat(searchCategories, httpClient, cfg)
+	if s, errb := squeal(methodName, "getTransactionsByCat", err); errb {
+		return []byte(s)
+	}
 
-	// 3.
-	//if currency_symbol == "" {
-	// 3.1 Find all accounts tagged as funding for this api credential
-	//_, _ = getTransferAccountID(categoryID, currencyID, httpClient, cfg)
+	// 5. Get all distributions for these transactions, that affect a hot wallet
+	distributions, _ := accountDepositHistoryGetDistributionsByTx(depositTransactions, httpClient, cfg)
+	if s, errb := squeal(methodName, "getDistributionsByTx", err); errb {
+		return []byte(s)
+	}
 
-	//setResponseHeaders(w, utils.ExpectedResponseHeaders, map[string]string{"Strict-Transport-Security": "", "Vary": ""})
-	//depositHistories := make([]utils.DepositHistory, 1)
-	//depositHistories[0] = utils.DepositHistory{Amount: "amount", TXID: "txid", CurrencyID: "currency", From: "from", To: "to", DepositID: 666, Timestamp: "timestamp", Status: "status"}
-	//retVal, _ = json.Marshal(depositHistories)
-	//return retVal
+	// Loop over all distributions and build the return result.
+	depositHistories := make([]utils.DepositHistory, 0)
+	for _, v := range distributions {
 
-	//} else {
-	// If the currency is legit
-	//_, err := getCurrencyBySym(client, currency_symbol, cfg)
-	//if err != nil {
-	//s := fmt.Sprintf("account-deposit-history.go generateAccountDepositHistoryResponse: The currency_symbol %s is not defined on this OKCatbox server.", currency_symbol)
-	//log.Error(s)
-	//fmt.Fprintf(w, s)
-	//return []byte{}
-	//w.WriteHeader(http.StatusBadRequest)
-	//retVal, _ = json.Marshal(utils.Err30031(currency_symbol))
-	//return retVal
-	//}
+		// If a currency symbol has been specified, filter all but that.
+		if currencySymbol == "" || currencySymbol == v.CurrencySymbol {
+			// here we potentially lose info because extra digits may be hidden by rounding
+			amt := dfp_fmt(DFP{v.Amount, v.AmountExp}, -8)
 
-	//depositHistories := make([]utils.DepositHistory, 1)
-	//depositHistories[0] = utils.DepositHistory{Amount: "amount", TXID: "txid", CurrencyID: "currency", From: "from", To: "to", DepositID: 666, Timestamp: "timestamp", Status: "status"}
-	//retVal, _ = json.Marshal(depositHistories)
-	//return retVal
+			dh := utils.DepositHistory{
+				Amount:     amt.s,
+				TXID:       "blockchain txid",
+				CurrencyID: v.CurrencySymbol,
+				From:       "",
+				To:         "okex address",
+				DepositID:  v.TransactionID,
+				Timestamp:  v.Time,
+				Status:     "2", //  2: deposit successful
+			}
 
-	// find all accounts marked as funding for this api credentials and with this currency
-	// else
-	// error bad currency
+			depositHistories = append(depositHistories, dh)
+		}
 
-	// find all CR distributions
-	// return them all
-	//}
+	}
 
-	return []byte{}
+	retVal, err := json.Marshal(depositHistories)
+	if s, errb := squealJSONMarshal(methodName, depositHistories, err); errb {
+		return []byte(s)
+	}
+	return retVal
 
 }

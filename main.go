@@ -55,18 +55,6 @@ var obj utils.Credentials
 // This is our in-memory db
 var db *memdb.MemDB
 
-func setResponseHeaders(w http.ResponseWriter, expectedResponseHeaders, extraResponseHeaders map[string]string) {
-	for k, v := range expectedResponseHeaders {
-		// Even if we expect Content-Length, don't send it
-		if k != "Content-Length" {
-			w.Header().Set(k, v)
-		}
-	}
-	for k, v := range extraResponseHeaders {
-		w.Header().Set(k, v)
-	}
-}
-
 func validateAccessKey(headers map[string][]string) (exists, valid bool) {
 	if value, ok := headers["Ok-Access-Key"]; ok {
 		// Ok-Access-Key is in the headers.  Now try to validate it.
@@ -296,14 +284,14 @@ func main() {
 
 	// Get deposits for all currencies
 	http.HandleFunc("/api/account/v3/deposit/history", func(w http.ResponseWriter, req *http.Request) {
-		account_depositHistoryHandler(w, req, cfg, "")
+		accountDepositHistoryHandler(w, req, cfg, "")
 	})
 
 	// Get deposits for only the currency specified in the URL .../history/<currency>
 	http.HandleFunc("/api/account/v3/deposit/history/", func(w http.ResponseWriter, req *http.Request) {
 		n := strings.Split(req.URL.Path, "/")
 		currency := n[len(n)-1]
-		account_depositHistoryHandler(w, req, cfg, currency)
+		accountDepositHistoryHandler(w, req, cfg, currency)
 	})
 
 	http.HandleFunc("/api/account/v3/ledger", func(w http.ResponseWriter, req *http.Request) {

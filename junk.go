@@ -9,7 +9,6 @@ import (
 	"github.com/gojektech/heimdall/httpclient"
 	log "github.com/sirupsen/logrus"
 	"io/ioutil"
-	"strings"
 )
 
 //import (
@@ -58,7 +57,38 @@ type CurrenciesID struct {
 }
 
 type TransactionsID struct {
-	ID uint32 `json:"transactions-id"`
+	ID uint32 `json:"transactions_categories.transaction_id"`
+}
+
+func getCategoryDistSums(httpClient *httpclient.Client, url string) (retVal Sums, err error) {
+
+	methodName := "okcatbox:bookwerx-api.go:getCategoryDistSums"
+	//req, err := http.NewRequest("GET", url, nil)
+	//if err != nil {
+	//s := fmt.Sprintf("bookwerx-api.go:getCategoryDistSums 1: %v", err)
+	//log.Error(s)
+	//return Sums{}, nil
+	//}
+	//resp, err := client.Do(req)
+	//defer resp.Body.Close()
+	// 2. Submit the query
+	responseBody, err := bwAPI.Get(httpClient, url)
+	if s, errb := squeal(methodName, "bwAPI.GET", err); errb {
+		return Sums{}, errors.New(s)
+	}
+
+	sums := Sums{}
+	err = json.NewDecoder(bytes.NewReader(responseBody)).Decode(&sums)
+	//if err != nil {
+	//s := fmt.Sprintf("bookwerx-api.go:getCategoryDistSums 3: Error with JSON decoding.")
+	//log.Error(s)
+	//return Sums{}, nil
+	//}
+	if s, errb := squealJSONDecode(methodName, responseBody, err); errb {
+		return Sums{}, errors.New(s)
+	}
+
+	return sums, nil
 }
 
 /*
@@ -313,137 +343,6 @@ func getCurrencyBySym(client *httpclient.Client, currency_symbol string, cfg Con
 
 	//return currency_id, nil
 	return 0, nil
-}
-
-/*
-Given a slice of transaction ID, find all distributions that are related to any of the given transactions.  Return said ([Distribution], nil) or ([0], some error).
-
-The categoryID slice must be of length 1 or 2.
-*/
-func getDistributionsByTx(transactionID []uint32, httpClient *httpclient.Client, cfg Config) (transaction_id []Distributions, err error) {
-
-	methodName := "okcatbox:account-deposit-history.go:getTransactionsByCat"
-
-	// 1. The desired query varies according to the len(transactionID)
-	var inClause string
-	switch len(transactionID) {
-	case 0:
-		{
-			return []Distributions{}, nil // no TXID, no distributions
-		}
-
-	default:
-		{
-			var sb strings.Builder
-			sb.WriteRune('(')
-			for k, _ := range transaction_id {
-				if k == 0 {
-					sb.WriteString("%d")
-				} else {
-					sb.WriteString(",%d")
-				}
-			}
-			sb.WriteRune(')')
-			inClause = sb.String()
-		}
-	}
-
-	// 2. Build and execute the query.
-	selectt := "SELECT%20distributions.amount, distributions.amount_exp, distributions.transaction_id"
-	from := "FROM%20distributions"
-	where := fmt.Sprintf("WHERE%%20distributions.transaction_id%%20IN%%20%s", inClause)
-	query := fmt.Sprintf("%s%%20%s%%20%s", selectt, from, where)
-	url := fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-
-	responseBody, err := bwAPI.Get(httpClient, url)
-
-	if err != nil {
-		s := fmt.Sprintf("%s: bwAPI.Get error=%+v", methodName, err)
-		log.Error(s, err)
-		return []Distributions{}, errors.New(s)
-	}
-	//fixDot(responseBody)
-
-	// 3. Decode the response.
-	distributions := make([]Distributions, 0)
-	dec := json.NewDecoder(bytes.NewReader(responseBody))
-	err = dec.Decode(&distributions)
-	if err != nil {
-		s := fmt.Sprintf("%s: JSON decode error: Err=%v\nbody=%s\n", methodName, err, string(responseBody))
-		log.Error(s, err)
-		return []Distributions{}, errors.New(s)
-	}
-
-	return distributions, nil
-
-}
-
-/*
-Given a slice of category ID, find all transactions that are tagged with all of the given categories.  Return said ([transaction ID], nil) or ([0], some error).
-
-The categoryID slice must be of length 1 or 2.
-*/
-func getTransactionsByCat(categoryID []uint32, httpClient *httpclient.Client, cfg Config) (transaction_id []uint32, err error) {
-
-	methodName := "okcatbox:bookwerx-api.go:getTransactionsByCat"
-
-	// 1. Validate the categoryID and build a suitable IN clause for the query.
-	var inClause string
-	switch len(categoryID) {
-	case 1:
-		{
-			inClause = fmt.Sprintf("(%d)", categoryID[0])
-		}
-	case 2:
-		{
-			inClause = fmt.Sprintf("(%d,%d)", categoryID[0], categoryID[1])
-		}
-	default:
-		{
-			s := fmt.Sprintf("%s: The len(categoryID) must be 1 or 2 only. In this case the length=%d\n", methodName, len(categoryID))
-			log.Error(s, err)
-			return []uint32{0}, errors.New(s)
-		}
-	}
-
-	// 2. Build and execute the query.
-	selectt := "SELECT%20accounts.id"
-	from := "FROM%20accounts_categories"
-	join1 := "JOIN%20accounts%20ON%20accounts.id%3daccounts_categories.account_id"
-	join2 := "JOIN%20currencies%20ON%20currencies.id%3daccounts.currency_id"
-	where := fmt.Sprintf("WHERE%%20accounts_categories.category_id%%20IN%%20%s", inClause)
-	//group := "GROUP%20BY%20accounts_categories.account_id%20HAVING%20COUNT(DISTINCT%20accounts_categories.account_id)%3d2"
-	group := fmt.Sprintf("GROUP%%20BY%%20accounts_categories.account_id%%20HAVING%%20COUNT(DISTINCT%%20accounts_categories.account_id)%%3d%d", len(categoryID))
-	query := fmt.Sprintf("%s%%20%s%%20%s%%20%s%%20%s%%20%s", selectt, from, join1, join2, where, group)
-	url := fmt.Sprintf("%s/sql?query=%s&apikey=%s", cfg.Bookwerx.Server, query, cfg.Bookwerx.APIKey)
-
-	responseBody, err := bwAPI.Get(httpClient, url)
-
-	if err != nil {
-		s := fmt.Sprintf("%s: bwAPI.Get error=%+v", methodName, err)
-		log.Error(s, err)
-		return []uint32{0}, errors.New(s)
-	}
-	fixDot(responseBody)
-
-	// 3. Decode the response.
-	tid := make([]TransactionsID, 0)
-	dec := json.NewDecoder(bytes.NewReader(responseBody))
-	err = dec.Decode(&tid)
-	if err != nil {
-		s := fmt.Sprintf("%s: JSON decode error: Err=%v\nbody=%s\n", methodName, err, string(responseBody))
-		log.Error(s, err)
-		return []uint32{0}, errors.New(s)
-	}
-
-	// 4. Map []TransactionsID -> []uint32
-	retVal := make([]uint32, len(tid))
-	for _, v := range tid {
-		retVal = append(retVal, v.ID)
-	}
-
-	return retVal, nil
-
 }
 
 // Create a new Account
